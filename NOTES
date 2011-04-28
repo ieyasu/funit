@@ -1,0 +1,39 @@
+Unit Testing Framework For Fortran
+==================================
+
+I need to write a new unit testing framework for Fortran because I need one that does not depend on special file names or endings, annoying locations for test files, unconfigurable compilation, etc.
+
+How I want this to work:  Source code lives in ./, test code lives under test/ possibly with further directory structure underneath.  Test cases for XXX are in files named test_XXX.fun and use special syntax to designate tests, setup/teardown, dependencies, etc.  These will get rewritten to an equivalent fortran file with all the necessary changes to link into an executable test program.  A command line program funit will be responsible for running individual test cases or a whole directory worth of test cases.
+
+Some tests may need fixtures which should live somewhere nice like test/fixtures/.  Not sure what the framework needs to do about that though.
+
+Need to be able to configure how the build system works.  By default (and initially), use make to build the required .o files and the FC env var to build and link the test program.  Later have a config file to specify how this functions.
+
+May need to be able to parse types of assertion arguments so that I can generate correct test code.  That or I need assortions for many different variable types.  Lame.
+
+Components:
+ - test file parser
+ - build system
+ - test library (assertions)
+ - test runner (funit command)
+ - auto-runner(?)
+
+
+Going to have to write the test library in Fortran or at least C.  No way am I going to write teh test file parser, build system, etc. in Fortran though.  C might be nice, but Ruby may be easier.  C means i should use autoconf, and autoconf is pain.  Ruby means writing a gem and conflicting with NASA's funit, in addition to the extra language dependency. It's not clear which is better.
+
+
+Test Library & Running
+----------------------
+
+Needs a suite of assertion functions which the test files will be rewritten to call.  Assertions need to test their expectation, continue on success but on failure they add the message to the list of failures and exit the test routine.
+
+Progress needs to be reported in real time. Each success or failure should be reported as soon as the test routine exits or an assertion fails.  The failures need to be counted to be reported at the end, which reduces the fancy memory handling needed (good).  Time should be kept track of as well.
+
+On test program exit, it should return the number of tests that failed.  This way the test runner (fu) can keep track of the total failures when running multiple suites.  Then fu keeps track of total run time and overall failure status.
+
+Test File Parser
+----------------
+
+Support the following syntax: test_suite, test, setup, teardown, various assertions, dep, use, and variable type declarations.
+
+We cannot detect the type of a variable if is defined elsewhere.  Usually (always?) assertions will involve local variables, but if these are user-defined types from a module, fu cannot get at them.  We will always need a way to specify the type if I have to code Fortran so that it won't be able to figure things out automatically.  When needed, allow assert_blah_KIND(...) syntax to specify the kind.  Allow symbolic kinds as we have in SiB.
