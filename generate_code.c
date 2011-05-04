@@ -3,6 +3,8 @@
 #include "funit.h"
 #include <stdio.h>
 
+#include "funit_fortran_module.h"
+
 void generate_code(struct Code *code)
 {
     if (code->next)
@@ -104,7 +106,7 @@ int main(int argc, char **argv)
 
     suites = parse_suite_file(argv[1]);
 
-    // XXX emit funit module code
+    fputs(module_code, stdout);
 
     suite_i = 0;
     generate_suite(suites, &suite_i);
