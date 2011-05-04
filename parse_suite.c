@@ -37,7 +37,6 @@
 #include <strings.h>
 
 static const char *END_OF_LINE = (char *)0x1;
-static const char *END_OF_FILE = (char *)0x3;
 
 static const char *filename = NULL;
 static int fd = 0;
@@ -383,7 +382,7 @@ static struct Code *parse_fortran(void)
         tok = next_token(&len);
         assert(tok != NULL);
         if (is_suite_token(tok, len) ||
-            same_token("end", 3, tok, len) && next_is_suite_end_token()) {
+            (same_token("end", 3, tok, len) && next_is_suite_end_token())) {
             break;
         }
         // if not found, continue
@@ -392,7 +391,7 @@ static struct Code *parse_fortran(void)
     if (line_pos < file_end) { // found non-fortran code
         // record bounds of fortran code
         code->str = start;
-        code->len = line_pos - start;
+        code->len = line_pos - start - 1;
         next_pos = read_pos = line_pos;
         return code;
     }

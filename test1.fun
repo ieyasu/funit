@@ -6,6 +6,9 @@ test_suite suite name
 
   tolerance 0.00001
 
+  a = a + 1 ! more fortran for some reason
+  b = b * a  
+
   setup
     ! fortran code to run before each test
   end setup
@@ -13,7 +16,6 @@ test_suite suite name
   teardown
     ! fortran code to run after each test
   end teardown
-
   test case1
     ...
   end test case1

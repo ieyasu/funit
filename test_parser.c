@@ -24,7 +24,6 @@ void print_code(char *label, struct Code *code)
         fputs("...", stdout);
         fwrite(code->str + code->len - 25, 25, 1, stdout);
     }
-    puts("");
 }
 
 void print_test(struct TestRoutine *test)
