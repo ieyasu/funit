@@ -391,7 +391,7 @@ static struct Code *parse_fortran(void)
     if (line_pos < file_end) { // found non-fortran code
         // record bounds of fortran code
         code->str = start;
-        code->len = line_pos - start - 1;
+        code->len = line_pos - start;
         next_pos = read_pos = line_pos;
         return code;
     }

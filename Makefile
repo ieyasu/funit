@@ -10,5 +10,8 @@ LFLAGS =
 test_parser: test_parser.o parse_suite.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LFLAGS)
 
+generate_code: generate_code.o parse_suite.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LFLAGS)
+
 clean:
 	rm -f *.o *~
