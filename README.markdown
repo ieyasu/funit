@@ -58,6 +58,8 @@ Assertions
 - assert_equal(a, b[, msg])
 - assert_not_equal(a, b[, msg])
 - assert_equal_with(a, b[, tol][, msg])
+- assert_array_equal(a, b[, msg])
+- assert_array_equal_with(a, b[, tol][, msg])
 - flunk(msg)
 
 
