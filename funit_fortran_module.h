@@ -56,42 +56,4 @@ const char module_code[] = \
   "  end subroutine report_stats\n" \
   "end module funit\n" \
   "\n" \
-  "\n" \
-  "\n" \
-  "#if 0\n" \
-  "  subroutine a_test_case(passed, _message)\n" \
-  "    logical, intent(out) :: passed\n" \
-  "    character(*) :: _message\n" \
-  "\n" \
-  "    !assert_true(expr):\n" \
-  "    if (.not. (expr)) then\n" \
-  "       write(_message,*) \"expr\", \"is false\"\n" \
-  "       passed = .false.\n" \
-  "       return\n" \
-  "    end if\n" \
-  "\n" \
-  "    !assert_false(expr):\n" \
-  "    if (expr) then\n" \
-  "       write(_message,*) \"expr\", \"is false\"\n" \
-  "       passed = .false.\n" \
-  "       return\n" \
-  "    end if\n" \
-  "\n" \
-  "    passed = .true.\n" \
-  "  end subroutine a_test_case\n" \
-  "\n" \
-  "  program main\n" \
-  "    character*512 :: message\n" \
-  "    integer :: passed\n" \
-  "\n" \
-  "    call clear_stats\n" \
-  "\n" \
-  "    call start_suite(\"suite name\")\n" \
-  "\n" \
-  "    call a_test_case(passed, message)\n" \
-  "    call pass_fail(passed, message, \"a_test_case\")\n" \
-  "\n" \
-  "    call report_stats\n" \
-  "  end program main\n" \
-  "#endif\n" \
 ;
