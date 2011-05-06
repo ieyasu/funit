@@ -506,6 +506,8 @@ static int generate_test(struct TestRoutine *test, int *test_i)
         if (generate_code(test->code))
             return -1;
     }
+
+    fputs("\n    funit_passed_ = .true.\n", stdout);
     printf("  end subroutine funit_test%i\n\n", *test_i);
 
     return 0;
