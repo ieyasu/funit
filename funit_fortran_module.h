@@ -4,6 +4,7 @@ const char module_code[] = \
   "  save\n" \
   "\n" \
   "  integer :: suite_count, pass_count, fail_count\n" \
+  "  real :: cpu_start, cpu_finish\n" \
   "\n" \
   "contains\n" \
   "  ! others: assert_true, assert_false, assert_equal, assert_not_equal, flunk\n" \
@@ -44,16 +45,19 @@ const char module_code[] = \
   "    suite_count = 0\n" \
   "    pass_count = 0\n" \
   "    fail_count = 0\n" \
-  "    ! XXX time counter\n" \
+  "    call cpu_time(cpu_start);\n" \
   "  end subroutine clear_stats\n" \
   "\n" \
   "  subroutine report_stats\n" \
   "    character*16 :: test_count_s, suite_count_s, fail_count_s\n" \
   "\n" \
-  "    ! XXX print time taken: \"Finished in 2.3 seconds\"\n" \
+  "    print *, \"\"\n" \
+  "\n" \
+  "    ! \"Finished in 3.2 seconds\"\n" \
+  "    call cpu_time(cpu_finish)\n" \
+  "    print '(\"Finished in \",F4.1,\" seconds\")', cpu_finish - cpu_start\n" \
   "\n" \
   "    ! \"3 tests in 1 suite, 1 failure\"\n" \
-  "    print *, \"\"\n" \
   "    write (test_count_s,*) (pass_count + fail_count)\n" \
   "    write (suite_count_s,*) suite_count\n" \
   "    write (fail_count_s,*) fail_count\n" \

@@ -3,6 +3,7 @@ module funit
   save
 
   integer :: suite_count, pass_count, fail_count
+  real :: cpu_start, cpu_finish
 
 contains
   ! others: assert_true, assert_false, assert_equal, assert_not_equal, flunk
@@ -43,7 +44,7 @@ contains
     suite_count = 0
     pass_count = 0
     fail_count = 0
-    ! XXX time counter
+    call cpu_time(cpu_start);
   end subroutine clear_stats
 
   subroutine report_stats
@@ -51,7 +52,9 @@ contains
 
     print *, ""
 
-    ! XXX print time taken: "Finished in 2.3 seconds"
+    ! "Finished in 3.2 seconds"
+    call cpu_time(cpu_finish)
+    print '("Finished in ",F4.1," seconds")', cpu_finish - cpu_start
 
     ! "3 tests in 1 suite, 1 failure"
     write (test_count_s,*) (pass_count + fail_count)
