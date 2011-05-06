@@ -61,6 +61,8 @@ struct TestSuite {
     double tolerance;
 };
 
+#define DEFAULT_TOLERANCE (0.00001)
+
 #ifndef MIN
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 #endif

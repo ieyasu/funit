@@ -62,6 +62,8 @@ Assertions
 - assert_array_equal_with(a, b[, tol][, msg])
 - flunk(msg)
 
+The array assertions should be given array variable names rather than complex expressions because their arguments are evaluated several times.
+
 
 Running Tests
 =============
