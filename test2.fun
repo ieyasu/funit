@@ -32,7 +32,8 @@ test_suite suite name
     assert_not_equal(4, &
 !4 + 1)
 4 + 0)
-    flunk("if that & that ( didn't stop it, &
-           &this will")
+    flunk("if that & ""that' ( didn't stop it, &
+           &this &
+will")
   end test case3
 end test_suite

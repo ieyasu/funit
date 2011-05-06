@@ -38,7 +38,9 @@
 
 static const char *END_OF_LINE = (char *)0x1;
 
-static const char *filename = NULL;
+
+const char *test_suite_file_name = NULL;
+
 static int fd = 0;
 static struct stat statbuf;
 static char *file_buf = NULL, *file_end = NULL;
@@ -101,15 +103,17 @@ void close_suite_and_free(struct TestSuite *suites)
     if (file_buf && !munmap(file_buf, statbuf.st_size)) {
         file_buf = NULL;
     } else {
-        fprintf(stderr, "Unmapping file %s: %s\n", filename, strerror(errno));
+        fprintf(stderr, "Unmapping file %s: %s\n", test_suite_file_name,
+                strerror(errno));
         abort();
     }
 
     if (fd && !close(fd)) {
         fd = 0;
-        filename = NULL;
+        test_suite_file_name = NULL;
     } else {
-        fprintf(stderr, "Closing file %s: %s\n", filename, strerror(errno));
+        fprintf(stderr, "Closing file %s: %s\n", test_suite_file_name,
+                strerror(errno));
         abort();
     }
 
@@ -121,8 +125,8 @@ static void fail(const char *col, const char *message)
     assert(line_pos != NULL);
 
     // file:line:
-    assert(filename != NULL);
-    fprintf(stderr, "%s:%li:\n\n", filename, lineno);
+    assert(test_suite_file_name != NULL);
+    fprintf(stderr, "%s:%li:\n\n", test_suite_file_name, lineno);
     // code
     fwrite(line_pos, next_line_pos - line_pos, 1, stderr);
     fputs("\n", stderr);
@@ -467,7 +471,6 @@ static char *split_macro_arg(void)
                 paren_count++;
             break;
         case ')':
-            puts("close paren");
         case ',':
             if (!in_single_string && !in_double_string) {
                 if (paren_count == 0)
@@ -507,16 +510,15 @@ static struct Code *parse_macro_args(int *error)
         return NULL;
     }
 
-printf("got arg: '");
-fwrite(read_pos, next_pos - read_pos, 1, stdout);
-printf("'\n");
-
     code = NEW0(struct Code);
     code->type = ARG_CODE;
+    code->lineno = lineno;
     code->u.c.str = read_pos;
     code->u.c.len = next_pos - read_pos;
     read_pos = next_pos + 1;
     if (*next_pos == ',') {
+        next_pos++;
+        skip_ws();
         code->next = parse_macro_args(error);
         if (*error) {
             free(code);
@@ -533,6 +535,7 @@ static struct Code *parse_macro(enum MacroType mtype)
     int error = 0;
 
     code->type = MACRO_CODE;
+    code->lineno = lineno;
     code->u.m.type = mtype;
     code->u.m.args = parse_macro_args(&error);
     if (error)
@@ -553,7 +556,7 @@ static struct Code *parse_macro(enum MacroType mtype)
  * NULL if not. The out param type returns the assertion type, and afterp is
  * set to point immediately after the macro's opening paren.
  */
-static char *find_assert(enum MacroType *type)
+static char *find_macro(enum MacroType *type)
 {
     size_t len = next_line_pos - read_pos;
     char *assert;
@@ -667,12 +670,10 @@ static struct Code *parse_fortran(void)
     size_t len;
 
     code->type = FORTRAN_CODE;
+    code->lineno = lineno;
 
     // read lines until a recognized end sequence appear
     while (read_pos < file_end) {
-puts("line of fortran code:");
-fwrite(read_pos, next_line_pos - read_pos, 1, stdout);
-puts("");
         // look for end sequence
         save_pos = read_pos;
         tok = next_token(&len);
@@ -684,7 +685,7 @@ puts("");
             read_pos = save_pos;
         }
 
-        if (find_assert(&mtype)) {
+        if (find_macro(&mtype)) {
             //  record initial fortran code
             code->u.c.str = start;
             code->u.c.len = read_pos - start;
@@ -809,10 +810,6 @@ static struct Code *parse_support(const char *kind)
     if (!code)
         goto err;
 
-    printf("code: '");
-    fwrite(code->u.c.str, code->u.c.len, 1, stdout);
-    printf("'\n");
-
     if (parse_end_sequence(kind, NULL, 0))
         goto err;
 
@@ -916,9 +913,6 @@ static struct TestSuite *parse_suite(void)
                 goto err; // EOF
             }
         } else if (tok) {
-printf("tok = '");
-fwrite(tok, len, 1, stdout);
-printf("'\n");
             if (same_token("dep", 3, tok, len)) {
                 struct TestDependency *dep = parse_dependency();
                 if (!dep)
@@ -1012,7 +1006,7 @@ struct TestSuite *parse_suite_file(const char *path)
         fprintf(stderr, "Opening file %s: %s\n", path, strerror(errno));
         return NULL;
     }
-    filename = path;
+    test_suite_file_name = path;
 
     if (fstat(fd, &statbuf)) {
         fprintf(stderr, "Stat file %s: %s\n", path, strerror(errno));

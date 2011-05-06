@@ -3,23 +3,27 @@
 #include "funit.h"
 #include <stdio.h>
 
+// for module_code string variable
 #include "funit_fortran_module.h"
 
 static double tolerance = 0.0;
 
-static int check_assert_args(const char *macro_name,
+static int check_assert_args(const char *macro_name, struct Code *macro,
                              struct Code *args, int num_expected)
 {
+    long lineno;
     int n;
 
     assert(num_expected > 0);
 
     if (!args) {
-        // XXX no argument to -macro_name
+        fprintf(stderr, "near %s:%li: no arguments to %s()\n",
+                test_suite_file_name, macro->lineno, macro_name);
         return -1;
     }
     n = 0;
     while (args) {
+        lineno = args->lineno;
         n++;
         if (n > num_expected)
             goto badargs;
@@ -29,21 +33,107 @@ static int check_assert_args(const char *macro_name,
         goto badargs;
     return 0;
  badargs:
-    // XXX expected -num_expected- argument(s) to -macro_name-
+    fprintf(stderr, "near %s:%li: expected %i argument%s to %s()\n",
+            test_suite_file_name, lineno, num_expected,
+            (num_expected > 1) ? "s" : "", macro_name);
     return -1;
 }
 
 // plain printing
-#define PRINT_ARG(arg) fwrite((arg)->u.c.str, (arg)->u.c.len, 1, stdout)
+#define PRINT_CODE(arg) fwrite((arg)->u.c.str, (arg)->u.c.len, 1, stdout)
+
+static char *find_line_continuation(char *s, char *end, int in_string)
+{
+    char *line_start;
+
+    assert(*s == '\n' || *s == '\r');
+
+ skip_line:
+    while (s < end) {
+        switch (*s) {
+        case '\r':
+            if (*(s + 1) == '\n')
+                s++;
+            // fallthrough
+        case '\n':
+            s++;
+            goto eol;
+        default:
+            break;
+        }
+        s++;
+    }
+ eol:
+    line_start = s;
+
+    // find first non-ws char
+    while (s < end && (*s == ' ' || *s == '\t'))
+        s++;
+    switch (*s) {
+    case '!':
+        goto skip_line;
+    case '&':
+        if (in_string)
+            return s + 1; // skip past whitespace eater
+        // fallthrough
+    default:
+        return line_start;
+    }
+}
 
 /* Prints the macro argument between s and end to the fout stream, handling
  * newlines by inserting a leading '&' if one is not already present.
  */
 static void print_macro_arg(struct Code *arg)
 {
+    char *s, *start, *end, *amp, string_delim;
+    int in_string = 0;
+
     assert(arg && arg->type == ARG_CODE);
 
-    // XXX print it out
+    s = start = arg->u.c.str;
+    end = s + arg->u.c.len;
+    amp = NULL;
+    while (s < end) {
+        switch (*s) {
+        case '\'':
+        case '"':
+            if (in_string) {
+                if (*(s + 1) == string_delim)
+                    s++; // doubled to escape
+                else
+                    in_string = 0; // close quote
+            } else {
+                in_string = 1;
+                string_delim = *s;
+            }
+            amp = NULL;
+            break;
+        case '&':
+            amp = s;
+            break;
+        case ' ':
+        case '\t':
+            // leave amp alone
+            break;
+        case '\n':
+        case '\r':
+            // line continuation
+            assert(amp != NULL);
+            // print prior arg-part
+            fwrite(start, amp - start, 1, stdout);
+            // scan for next arg-part
+            start = find_line_continuation(s, end, in_string);
+            s = start - 1;
+            break;
+        default:
+            amp = NULL;
+            break;
+        }
+        s++;
+    }
+    // print remaining
+    fwrite(start, end - start, 1, stdout);
 }
 
 /* assert_true(expr) becomes:
@@ -58,11 +148,11 @@ static int generate_assert_true(struct Code *macro)
 {
     struct Code *arg = macro->u.m.args;
 
-    if (check_assert_args("assert_true", arg, 1))
+    if (check_assert_args("assert_true", macro, arg, 1))
         return -1;
 
     fputs("if (.not. (", stdout);
-    PRINT_ARG(arg);
+    PRINT_CODE(arg);
     fputs(")) then\n", stdout);
     fputs("      write(funit_message_,*) \"'", stdout);
     print_macro_arg(arg);
@@ -86,11 +176,11 @@ static int generate_assert_false(struct Code *macro)
 {
     struct Code *arg = macro->u.m.args;
 
-    if (check_assert_args("assert_false", arg, 1))
+    if (check_assert_args("assert_false", macro, arg, 1))
         return -1;
 
     fputs("if (", stdout);
-    PRINT_ARG(arg);
+    PRINT_CODE(arg);
     fputs(") then\n", stdout);
     fputs("      write(funit_message_,*) '", stdout);
     print_macro_arg(arg);
@@ -114,14 +204,14 @@ static int generate_assert_equal(struct Code *macro)
 {
     struct Code *a = macro->u.m.args, *b;
 
-    if (check_assert_args("assert_equal", a, 2))
+    if (check_assert_args("assert_equal", macro, a, 2))
         return -1;
     b = a->next;
 
     fputs("if ((", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs(") /= (", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fputs(")) then\n", stdout);
     fputs("      write(funit_message_,*) \"'",stdout);
     print_macro_arg(a);
@@ -147,14 +237,14 @@ static int generate_assert_not_equal(struct Code *macro)
 {
     struct Code *a = macro->u.m.args, *b;
 
-    if (check_assert_args("assert_not_equal", a, 2))
+    if (check_assert_args("assert_not_equal", macro, a, 2))
         return -1;
     b = a->next;
 
     fputs("if ((", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs(") == (", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fputs(")) then\n", stdout);
     fputs("      write(funit_message_,*) \"'",stdout);
     print_macro_arg(a);
@@ -180,14 +270,14 @@ static int generate_assert_equal_with(struct Code *macro)
 {
     struct Code *a = macro->u.m.args, *b;
 
-    if (check_assert_args("assert_equal_with", a, 2))
+    if (check_assert_args("assert_equal_with", macro, a, 2))
         return -1;
     b = a->next;
 
     fputs("if (abs((", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs(") - (", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fprintf(stdout, ")) > %f) then\n", tolerance);
     fputs("      write(funit_message_,*) \"'",stdout);
     print_macro_arg(a);
@@ -204,19 +294,19 @@ static int generate_assert_equal_with(struct Code *macro)
 static void print_array_size_check(struct Code *a, struct Code *b)
 {
     fputs("if (size(", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs(") /= size(", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fputs(")) then\n", stdout);
     fputs("      write(funit_message_,*) \"'",stdout);
     print_macro_arg(a);
     fputs("' is length, size(", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs("), &\n", stdout);
     fputs("        which is not the same as '", stdout);
     print_macro_arg(b);
     fputs("' which is length, size(", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fputs(")\n", stdout);
     fputs("      funit_passed_ = .false.\n", stdout);
     fputs("      return\n", stdout);
@@ -244,7 +334,7 @@ static int generate_assert_array_equal(struct Code *macro)
 {
     struct Code *a = macro->u.m.args, *b;
 
-    if (check_assert_args("assert_array_equal", a, 2))
+    if (check_assert_args("assert_array_equal", macro, a, 2))
         return -1;
     b = a->next;
 
@@ -252,21 +342,21 @@ static int generate_assert_array_equal(struct Code *macro)
 
     // do loop
     fputs("    do funit_i = 1,size(", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs(")\n", stdout);
     fputs("      if (", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs("(funit_i_) /= ", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fputs("(funit_i_)) then\n", stdout);
     fputs("        write(funit_message_,*) \"", stdout);
     print_macro_arg(a);
     fputs("(\", funit_i_, \") is not equal to ", stdout);
     print_macro_arg(b);
     fputs("(\", funit_i_, \"): \", ", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs("(funit_i_), \"vs\", ", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fputs("(funit_i_)\n", stdout);
     fputs("        funit_passed_ = .false.\n", stdout);
     fputs("        return\n", stdout);
@@ -297,7 +387,7 @@ static int generate_assert_array_equal_with(struct Code *macro)
 {
     struct Code *a = macro->u.m.args, *b;
 
-    if (check_assert_args("assert_array_equal", a, 2))
+    if (check_assert_args("assert_array_equal", macro, a, 2))
         return -1;
     b = a->next;
 
@@ -306,21 +396,21 @@ static int generate_assert_array_equal_with(struct Code *macro)
 
     // do loop
     fputs("    do funit_i = 1,size(", stdout);
-    fwrite(a->u.c.str, a->u.c.len, 1, stdout);
+    PRINT_CODE(a);
     fputs(")\n", stdout);
     fputs("      if (abs(", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs("(funit_i_) - ", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fprintf(stdout, "(funit_i_)) > %f) then\n", tolerance);
     fputs("        write(funit_message_,*) \"", stdout);
     print_macro_arg(a);
     fprintf(stdout, "(\", funit_i_, \") is not within %f of \"", tolerance);
     print_macro_arg(b);
     fputs("(\", funit_i_, \"): \", ", stdout);
-    PRINT_ARG(a);
+    PRINT_CODE(a);
     fputs("(funit_i_), \"vs\", ", stdout);
-    PRINT_ARG(b);
+    PRINT_CODE(b);
     fputs("(funit_i_)\n", stdout);
     fputs("        funit_passed_ = .false.\n", stdout);
     fputs("        return\n", stdout);
@@ -340,11 +430,11 @@ static int generate_flunk(struct Code *macro)
 {
     struct Code *arg = macro->u.m.args;
 
-    if (check_assert_args("flunk", arg, 1))
+    if (check_assert_args("flunk", macro, arg, 1))
         return -1;
 
     fputs("write(funit_message_,*) ", stdout);
-    PRINT_ARG(arg);
+    PRINT_CODE(arg);
     fputs("\n", stdout);
     fputs("    funit_message_ = .false.\n", stdout);
     fputs("    return\n", stdout);
@@ -374,47 +464,49 @@ static int generate_assert(struct Code *macro)
     case FLUNK:
         return generate_flunk(macro);
     }
-    abort();
     return -1;
 }
 
-static void generate_code(struct Code *code)
+static int generate_code(struct Code *code)
 {
     switch (code->type) {
     case FORTRAN_CODE:
-        fwrite(code->u.c.str, code->u.c.len, 1, stdout);
+        PRINT_CODE(code);
         break;
     case MACRO_CODE:
-        if (!generate_assert(code)) {
-            // XXX report error
-            abort();
-        }
+        if (generate_assert(code))
+            return -1;
         break;
     default: // arg code
-        // XXX should not have been reached!
+        fprintf(stderr, "near %s:%li: bad code type %i in generate_code\n",
+                test_suite_file_name, code->lineno, (int)code->type);
         abort();
         break;
     }
-
     if (code->next)
-        generate_code(code->next);
+        return generate_code(code->next);
+    return 0;
 }
 
-static void generate_test(struct TestRoutine *test, int *test_i)
+static int generate_test(struct TestRoutine *test, int *test_i)
 {
     if (test->next)
         generate_test(test->next, test_i);
 
     *test_i += 1;
     printf("  subroutine funit_test%i(funit_passed_, funit_message_)\n", *test_i);
-    fputs("    implicit none\n", stdout);
+    fputs("    implicit none\n\n", stdout);
     fputs("    logical, intent(out) :: funit_passed_\n", stdout);
     fputs("    character(*), intent(out) :: funit_message_\n", stdout);
     fputs("    integer :: funit_i_\n\n", stdout);
 
-    if (test->code)
-        generate_code(test->code);
+    if (test->code) {
+        if (generate_code(test->code))
+            return -1;
+    }
     printf("  end subroutine funit_test%i\n\n", *test_i);
+
+    return 0;
 }
 
 static void generate_support(struct Code *code, const char *type)
@@ -443,7 +535,7 @@ static void generate_test_call(struct TestSuite *suite,
         fputs("  call funit_teardown\n\n", stdout);
 }
 
-static void generate_suite(struct TestSuite *suite, int *suite_i)
+static int generate_suite(struct TestSuite *suite, int *suite_i)
 {
     int test_i;
 
@@ -471,9 +563,12 @@ static void generate_suite(struct TestSuite *suite, int *suite_i)
         generate_support(suite->setup, "teardown");
     if (suite->tests) {
         test_i = 0;
-        generate_test(suite->tests, &test_i);
+        if (generate_test(suite->tests, &test_i))
+            return -1;
     }
     printf("end subroutine funit_suite%i\n", *suite_i);
+
+    return 0;
 }
 
 static void generate_suite_call(struct TestSuite *suite, int *suite_i)
@@ -501,19 +596,23 @@ static void generate_main(struct TestSuite *suite, int *suite_i)
 int main(int argc, char **argv)
 {
     struct TestSuite *suites;
-    int suite_i;
+    int suite_i, code = 0;
 
     suites = parse_suite_file(argv[1]);
 
     fputs(module_code, stdout);
 
     suite_i = 0;
-    generate_suite(suites, &suite_i);
+    if (generate_suite(suites, &suite_i)) {
+        code = -1;
+        goto err;
+    }
 
     suite_i = 0;
     generate_main(suites, &suite_i);
 
+ err:
     close_suite_and_free(suites);
 
-    return 0;
+    return code;
 }

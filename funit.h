@@ -24,6 +24,7 @@ enum MacroType {
 struct Code {
     struct Code *next;
     enum CodeType type;
+    long lineno;
     union {
         struct {
             char *str;
@@ -62,6 +63,9 @@ struct TestSuite {
 };
 
 #define DEFAULT_TOLERANCE (0.00001)
+
+// The name of the current test suite template file
+extern const char *test_suite_file_name;
 
 #ifndef MIN
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
