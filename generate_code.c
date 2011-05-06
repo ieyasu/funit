@@ -438,7 +438,7 @@ static int generate_flunk(struct Code *macro)
     fputs("write(funit_message_,*) ", stdout);
     PRINT_CODE(arg);
     fputs("\n", stdout);
-    fputs("    funit_message_ = .false.\n", stdout);
+    fputs("    funit_passed_ = .false.\n", stdout);
     fputs("    return\n", stdout);
 
     return 0;
@@ -548,10 +548,10 @@ static int generate_suite(struct TestSuite *suite, int *suite_i)
 
     *suite_i += 1;
     printf("subroutine funit_suite%i\n", *suite_i);
-    fputs("  implicit none\n\n", stdout);
     fputs("  use funit\n\n", stdout);
-    fputs("  character*512 :: funit_message_\n", stdout);
-    fputs("  integer :: funit_passed_\n\n", stdout);
+    fputs("  implicit none\n\n", stdout);
+    fputs("  character*1024 :: funit_message_\n", stdout);
+    fputs("  logical :: funit_passed_\n\n", stdout);
     if (suite->code)
         generate_code(suite->code);
     if (suite->tests) {

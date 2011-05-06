@@ -18,6 +18,8 @@
     
       test case1
         ...
+        assert_equal(a, 7)
+        ...
       end test case1
     end test_suite
  */

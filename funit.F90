@@ -26,16 +26,16 @@ contains
   subroutine pass_fail(passed, message, test_name)
     implicit none
 
-    integer,intent(in) :: passed
+    logical,intent(in) :: passed
     character(*),intent(in) :: message, test_name
 
     if (passed) then
        pass_count = pass_count + 1
-       print *, "  test ", test_name, "PASSED"
+       print *, "  test ", test_name, " PASSED"
     else
        fail_count = fail_count + 1
-       print *, "  test ", test_name, "FAILED"
-       print *, message
+       print *, "  test ", test_name, " FAILED"
+       print *, trim(message)
     end if
   end subroutine pass_fail
 
@@ -47,11 +47,19 @@ contains
   end subroutine clear_stats
 
   subroutine report_stats
+    character*16 :: test_count_s, suite_count_s, fail_count_s
+
+    print *, ""
+
     ! XXX print time taken: "Finished in 2.3 seconds"
 
     ! "3 tests in 1 suite, 1 failure"
-    print *, (pass_count + fail_count), "tests in", suite_count, "suites", &
-         ", ", fail_count, "failures"
+    write (test_count_s,*) (pass_count + fail_count)
+    write (suite_count_s,*) suite_count
+    write (fail_count_s,*) fail_count
+    print *, trim(adjustl(test_count_s)), " tests in ", &
+         trim(adjustl(suite_count_s)), " suites, ", &
+         trim(adjustl(fail_count_s)), " failures"
   end subroutine report_stats
 end module funit
 

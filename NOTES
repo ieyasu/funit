@@ -9,7 +9,7 @@ Some tests may need fixtures which should live somewhere nice like test/fixtures
 
 Need to be able to configure how the build system works.  By default (and initially), use make to build the required .o files and the FC env var to build and link the test program.  Later have a config file to specify how this functions.
 
-Tests need support modules.  Parse out use statements in the Fortran code, looking for those modules in a configurable search path.
+Tests need support modules.  Cannot write use statements in the test code due to syntactic issues.  Need to have "mod" keyword in addition to 'use'.  The difference is that "mod" will emit a "use module_name" in the appropriate place in the generated code whereas "dep" does not; "dep" just adds to the link objects.
 
 Components:
  + test file parser

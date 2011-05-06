@@ -50,6 +50,9 @@ Tests are written with special syntax around Fortran code implementing each test
       end test case2
     end test_suite
 
+Note: dependencies must be quoted and unlike Fortran, the strings must not be continued with an ampersand (&).
+
+
 Assertions
 ----------
 

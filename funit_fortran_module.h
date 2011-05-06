@@ -27,16 +27,16 @@ const char module_code[] = \
   "  subroutine pass_fail(passed, message, test_name)\n" \
   "    implicit none\n" \
   "\n" \
-  "    integer,intent(in) :: passed\n" \
+  "    logical,intent(in) :: passed\n" \
   "    character(*),intent(in) :: message, test_name\n" \
   "\n" \
   "    if (passed) then\n" \
   "       pass_count = pass_count + 1\n" \
-  "       print *, \"  test \", test_name, \"PASSED\"\n" \
+  "       print *, \"  test \", test_name, \" PASSED\"\n" \
   "    else\n" \
   "       fail_count = fail_count + 1\n" \
-  "       print *, \"  test \", test_name, \"FAILED\"\n" \
-  "       print *, message\n" \
+  "       print *, \"  test \", test_name, \" FAILED\"\n" \
+  "       print *, trim(message)\n" \
   "    end if\n" \
   "  end subroutine pass_fail\n" \
   "\n" \
@@ -48,11 +48,18 @@ const char module_code[] = \
   "  end subroutine clear_stats\n" \
   "\n" \
   "  subroutine report_stats\n" \
+  "    character*16 :: test_count_s, suite_count_s, fail_count_s\n" \
+  "\n" \
   "    ! XXX print time taken: \"Finished in 2.3 seconds\"\n" \
   "\n" \
   "    ! \"3 tests in 1 suite, 1 failure\"\n" \
-  "    print *, (pass_count + fail_count), \"tests in\", suite_count, \"suites\", &\n" \
-  "         \", \", fail_count, \"failures\"\n" \
+  "    print *, \"\"\n" \
+  "    write (test_count_s,*) (pass_count + fail_count)\n" \
+  "    write (suite_count_s,*) suite_count\n" \
+  "    write (fail_count_s,*) fail_count\n" \
+  "    print *, trim(adjustl(test_count_s)), \" tests in \", &\n" \
+  "         trim(adjustl(suite_count_s)), \" suites, \", &\n" \
+  "         trim(adjustl(fail_count_s)), \" failures\"\n" \
   "  end subroutine report_stats\n" \
   "end module funit\n" \
   "\n" \

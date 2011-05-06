@@ -1,10 +1,11 @@
 test_suite suite name
   dep "../file1.F90"
   dep "../file2.F90"
-
-  use a_module
+  !mod "a_module"
 
   tolerance 0.00001
+
+  integer :: a, b
 
   a = a + 1 ! more fortran for some reason
   b = b * a  
@@ -18,7 +19,6 @@ test_suite suite name
   end teardown
 
   test case1
-    call assert_blah("this must not expand")
   end test case1
 
   test case2
