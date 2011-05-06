@@ -99,10 +99,12 @@ static void print_macro_arg(struct Code *arg)
         case '\'':
         case '"':
             if (in_string) {
-                if (*(s + 1) == string_delim)
-                    s++; // doubled to escape
-                else
-                    in_string = 0; // close quote
+                if (*s == string_delim) {
+                    if (*(s + 1) == string_delim)
+                        s++; // doubled to escape
+                    else
+                        in_string = 0; // close quote
+                }
             } else {
                 in_string = 1;
                 string_delim = *s;

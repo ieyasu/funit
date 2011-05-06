@@ -441,38 +441,33 @@ static char *skip_ampersand_in_string(void)
  */
 static char *split_macro_arg(void)
 {
-    int paren_count = 0, in_single_string = 0, in_double_string = 0;
+    int paren_count = 0, in_string = 0;
+    char string_delim;
 
     next_pos = read_pos;
     while (next_pos < next_line_pos) {
         switch (*next_pos) {
         case '\'':
-            if (in_single_string) {
-                if (*(next_pos + 1) == '\'') // doubled quote to escape
-                    next_pos++;
-                else
-                    in_single_string = 0; // close quote
-            } else if (!in_double_string) {
-                in_single_string = 1;
-            }
-            break;
         case '"':
-            if (in_double_string) {
-                if (*(next_pos + 1) == '"')
-                    next_pos++; // doubled quote to escape
-                else
-                    in_double_string = 0; // close quote
-            } else if (!in_single_string) {
-                in_double_string = 1;
+            if (in_string) {
+                if (*next_pos == string_delim) {
+                    if (*(next_pos + 1) == string_delim)
+                        next_pos++; // doubled to escape
+                    else
+                        in_string = 0; // close quote
+                }
+            } else {
+                in_string = 1;
+                string_delim = *next_pos;
             }
             break;
         case '(':
-            if (!in_single_string && !in_double_string)
+            if (!in_string)
                 paren_count++;
             break;
         case ')':
         case ',':
-            if (!in_single_string && !in_double_string) {
+            if (!in_string) {
                 if (paren_count == 0)
                     return next_pos; // closing paren or separating comma
                 else
@@ -480,7 +475,7 @@ static char *split_macro_arg(void)
             }
             break;
         case '&':
-            if ((in_single_string || in_double_string)) {
+            if (in_string) {
                 if (!skip_ampersand_in_string())
                     return NULL;
             } else { // line continuation
