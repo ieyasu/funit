@@ -54,8 +54,8 @@ static void free_code(struct Code *code)
     if (code->next)
         free_code(code->next);
     if (code->type == MACRO_CODE) {
-        assert(code->u.m.args != NULL);
-        free_code(code->u.m.args);
+        if (code->u.m.args)
+            free_code(code->u.m.args);
     }
     free(code);
 }
@@ -231,6 +231,24 @@ static char *skip_ws(void)
     return read_pos;
 }
 
+static char *skip_next_ws(void)
+{
+    assert(next_pos != NULL);
+
+    while (next_pos < next_line_pos) {
+        switch (*next_pos) {
+        case ' ':
+        case '\t':
+            next_pos++;
+            break;
+        default:
+            goto eol;
+        }
+    }
+ eol:
+    return next_pos;
+}
+
 typedef void end_finder_fun(void);
 
 static char *next_thing(size_t *len, end_finder_fun end_fun)
@@ -371,14 +389,16 @@ static char *skip_line_continuation(int in_string)
     next_pos++;
 
     // expect ' ' or '\t' only until next_line_pos
-    skip_ws();
+    skip_next_ws();
     if (next_pos < next_line_pos) {
-        // XXX expected new line after &
+        fail(next_pos, "expected newline after '&'");
         return NULL;
     }
     while (next_pos < file_end) {
+        char *save_read_pos = read_pos;
         next_line();
-        skip_ws();
+        read_pos = save_read_pos;
+        skip_next_ws();
         switch (*next_pos) {
         case '!': // skip comment lines
             break;
@@ -390,7 +410,7 @@ static char *skip_line_continuation(int in_string)
             return next_pos;
         }
     }
-    // XXX syntax error
+    syntax_error();
     return NULL;
 }
 
@@ -401,11 +421,11 @@ static char *skip_ampersand_in_string(void)
     assert(*next_pos == '&');
     next_pos++;
 
-    skip_ws();
+    skip_next_ws();
     if (next_pos < next_line_pos && *next_pos != '\r' && *next_pos != '\n') {
         // not a line continuation
         next_pos--;
-        return next_pos; 
+        return next_pos;
     }
     next_pos = amp_pos;
     return skip_line_continuation(1);
@@ -428,7 +448,7 @@ static char *split_macro_arg(void)
                     next_pos++;
                 else
                     in_single_string = 0; // close quote
-            } else {
+            } else if (!in_double_string) {
                 in_single_string = 1;
             }
             break;
@@ -438,7 +458,7 @@ static char *split_macro_arg(void)
                     next_pos++; // doubled quote to escape
                 else
                     in_double_string = 0; // close quote
-            } else {
+            } else if (!in_single_string) {
                 in_double_string = 1;
             }
             break;
@@ -447,6 +467,7 @@ static char *split_macro_arg(void)
                 paren_count++;
             break;
         case ')':
+            puts("close paren");
         case ',':
             if (!in_single_string && !in_double_string) {
                 if (paren_count == 0)
@@ -466,7 +487,7 @@ static char *split_macro_arg(void)
             break;
         case '\r':
         case '\n':
-            // XXX unexpected end of line
+            fail(next_pos, "unexpected end of line");
             return NULL;
         default:
             break;
@@ -486,6 +507,10 @@ static struct Code *parse_macro_args(int *error)
         return NULL;
     }
 
+printf("got arg: '");
+fwrite(read_pos, next_pos - read_pos, 1, stdout);
+printf("'\n");
+
     code = NEW0(struct Code);
     code->type = ARG_CODE;
     code->u.c.str = read_pos;
@@ -502,11 +527,10 @@ static struct Code *parse_macro_args(int *error)
     return code;
 }
 
-
 static struct Code *parse_macro(enum MacroType mtype)
 {
     struct Code *code = NEW0(struct Code);
-    int error;
+    int error = 0;
 
     code->type = MACRO_CODE;
     code->u.m.type = mtype;
@@ -519,7 +543,7 @@ static struct Code *parse_macro(enum MacroType mtype)
         if (code->next)
             return code;
     }
-    // XXX expected macro argument
+    fail(read_pos, "expected macro argument");
  cleanup:
     free_code(code);
     return NULL;
@@ -591,7 +615,7 @@ static char *find_assert(enum MacroType *type)
                 read_pos = assert;
                 return assert;
             default:
-                // XXX expected '('
+                fail(next_pos, "expected '('");
                 return NULL;
             }
         }
