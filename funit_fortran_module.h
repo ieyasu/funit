@@ -33,10 +33,12 @@ const char module_code[] = \
   "\n" \
   "    if (passed) then\n" \
   "       pass_count = pass_count + 1\n" \
-  "       print *, \"  test \", test_name, \" PASSED\"\n" \
+  "       write (*,'(\"  test \",A,A,\"[32m\",\" PASSED\",A,\"[39m\")') test_name, &\n" \
+  "            char(27), char(27)\n" \
   "    else\n" \
   "       fail_count = fail_count + 1\n" \
-  "       print *, \"  test \", test_name, \" FAILED\"\n" \
+  "       write (*,'(\"  test \",A,A,\"[31m\",\" FAILED\",A,\"[39m\")') test_name, &\n" \
+  "            char(27), char(27)\n" \
   "       print *, trim(message)\n" \
   "    end if\n" \
   "  end subroutine pass_fail\n" \
@@ -50,6 +52,7 @@ const char module_code[] = \
   "\n" \
   "  subroutine report_stats\n" \
   "    character*16 :: test_count_s, suite_count_s, fail_count_s\n" \
+  "    character*2 :: color_code\n" \
   "\n" \
   "    print *, \"\"\n" \
   "\n" \
@@ -61,9 +64,17 @@ const char module_code[] = \
   "    write (test_count_s,*) (pass_count + fail_count)\n" \
   "    write (suite_count_s,*) suite_count\n" \
   "    write (fail_count_s,*) fail_count\n" \
-  "    print *, trim(adjustl(test_count_s)), \" tests in \", &\n" \
-  "         trim(adjustl(suite_count_s)), \" suites, \", &\n" \
-  "         trim(adjustl(fail_count_s)), \" failures\"\n" \
+  "    write (*,'(A,\" tests in \",A,\" suites, \")',advance='no') &\n" \
+  "         trim(adjustl(test_count_s)), trim(adjustl(suite_count_s))\n" \
+  "\n" \
+  "    if (fail_count > 0) then\n" \
+  "       color_code = \"31\" ! red\n" \
+  "    else\n" \
+  "       color_code = \"32\" ! green\n" \
+  "    end if\n" \
+  "    write (*,'(A,\"[\",A,\"m\")',advance='no') char(27), color_code\n" \
+  "    write (*,'(A,\" failures\")',advance='no') trim(adjustl(fail_count_s))\n" \
+  "    write (*,'(A,\"[39m\")') char(27)\n" \
   "  end subroutine report_stats\n" \
   "end module funit\n" \
   "\n" \

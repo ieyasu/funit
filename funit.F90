@@ -32,10 +32,12 @@ contains
 
     if (passed) then
        pass_count = pass_count + 1
-       print *, "  test ", test_name, " PASSED"
+       write (*,'("  test ",A,A,"[32m"," PASSED",A,"[39m")') test_name, &
+            char(27), char(27)
     else
        fail_count = fail_count + 1
-       print *, "  test ", test_name, " FAILED"
+       write (*,'("  test ",A,A,"[31m"," FAILED",A,"[39m")') test_name, &
+            char(27), char(27)
        print *, trim(message)
     end if
   end subroutine pass_fail
@@ -49,6 +51,7 @@ contains
 
   subroutine report_stats
     character*16 :: test_count_s, suite_count_s, fail_count_s
+    character*2 :: color_code
 
     print *, ""
 
@@ -60,9 +63,17 @@ contains
     write (test_count_s,*) (pass_count + fail_count)
     write (suite_count_s,*) suite_count
     write (fail_count_s,*) fail_count
-    print *, trim(adjustl(test_count_s)), " tests in ", &
-         trim(adjustl(suite_count_s)), " suites, ", &
-         trim(adjustl(fail_count_s)), " failures"
+    write (*,'(A," tests in ",A," suites, ")',advance='no') &
+         trim(adjustl(test_count_s)), trim(adjustl(suite_count_s))
+
+    if (fail_count > 0) then
+       color_code = "31" ! red
+    else
+       color_code = "32" ! green
+    end if
+    write (*,'(A,"[",A,"m")',advance='no') char(27), color_code
+    write (*,'(A," failures")',advance='no') trim(adjustl(fail_count_s))
+    write (*,'(A,"[39m")') char(27)
   end subroutine report_stats
 end module funit
 
