@@ -29,7 +29,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -47,10 +47,16 @@ static char *read_pos = NULL, *next_pos = NULL;
 static long lineno = 0;
 
 
+static struct Code *parse_fortran(void);
+
 static void free_code(struct Code *code)
 {
     if (code->next)
         free_code(code->next);
+    if (code->type == MACRO_CODE) {
+        assert(code->u.m.args != NULL);
+        free_code(code->u.m.args);
+    }
     free(code);
 }
 
@@ -235,10 +241,6 @@ static char *next_thing(size_t *len, end_finder_fun end_fun)
     next_pos = read_pos;
     end_fun();
 
-printf("thing = '");
-fwrite(read_pos, next_pos - read_pos, 1, stdout);
-puts("'");
-
     if (next_pos - read_pos > 0) {
         if (len)
             *len = next_pos - read_pos;
@@ -334,6 +336,269 @@ static char *next_quoted_string(size_t *len)
     return read_pos;
 }
 
+/* Looks for the string needle in the fixed-length haystack.  Returns the
+ * start of the needle if found, else NULL.  The needle should be all
+ * lower case.
+ */
+static char *strncasestr(char *haystack, size_t haystack_len,
+                         const char *needle, size_t needle_len)
+{
+    size_t i, j;
+
+    assert(needle_len > 0);
+#ifndef NDEBUG
+    for (i = 0; i < needle_len; i++)
+        assert(needle[i] == tolower(needle[i]));
+#endif
+
+    i = j = 0;
+    while (i < haystack_len) {
+        if (tolower(haystack[i]) == needle[j]) {
+            j++;
+            if (j == needle_len) // needle found
+                return haystack + i - needle_len + 1;
+        } else {
+            j = 0;
+        }
+        i++;
+    }
+    return NULL;
+}
+
+static char *skip_line_continuation(int in_string)
+{
+    assert(*next_pos == '&');
+    next_pos++;
+
+    // expect ' ' or '\t' only until next_line_pos
+    skip_ws();
+    if (next_pos < next_line_pos) {
+        // XXX expected new line after &
+        return NULL;
+    }
+    while (next_pos < file_end) {
+        next_line();
+        skip_ws();
+        switch (*next_pos) {
+        case '!': // skip comment lines
+            break;
+        case '&':
+            if (in_string)
+                next_pos++; // skip past whitespace truncator
+            // FALLTHROUGH
+        default:
+            return next_pos;
+        }
+    }
+    // XXX syntax error
+    return NULL;
+}
+
+static char *skip_ampersand_in_string(void)
+{
+    char *amp_pos = next_pos;
+
+    assert(*next_pos == '&');
+    next_pos++;
+
+    skip_ws();
+    if (next_pos < next_line_pos && *next_pos != '\r' && *next_pos != '\n') {
+        // not a line continuation
+        next_pos--;
+        return next_pos; 
+    }
+    next_pos = amp_pos;
+    return skip_line_continuation(1);
+}
+
+/* Look for the next ',' or un-balanced ')'.  Returns a pointer to that
+ * ',' or ')' or NULL if not found before end of file.  This may continue
+ * to the next line.
+ */
+static char *split_macro_arg(void)
+{
+    int paren_count = 0, in_single_string = 0, in_double_string = 0;
+
+    next_pos = read_pos;
+    while (next_pos < next_line_pos) {
+        switch (*next_pos) {
+        case '\'':
+            if (in_single_string) {
+                if (*(next_pos + 1) == '\'') // doubled quote to escape
+                    next_pos++;
+                else
+                    in_single_string = 0; // close quote
+            } else {
+                in_single_string = 1;
+            }
+            break;
+        case '"':
+            if (in_double_string) {
+                if (*(next_pos + 1) == '"')
+                    next_pos++; // doubled quote to escape
+                else
+                    in_double_string = 0; // close quote
+            } else {
+                in_double_string = 1;
+            }
+            break;
+        case '(':
+            if (!in_single_string && !in_double_string)
+                paren_count++;
+            break;
+        case ')':
+        case ',':
+            if (!in_single_string && !in_double_string) {
+                if (paren_count == 0)
+                    return next_pos; // closing paren or separating comma
+                else
+                    paren_count--;
+            }
+            break;
+        case '&':
+            if ((in_single_string || in_double_string)) {
+                if (!skip_ampersand_in_string())
+                    return NULL;
+            } else { // line continuation
+                if (!skip_line_continuation(0))
+                    return NULL;
+            }
+            break;
+        case '\r':
+        case '\n':
+            // XXX unexpected end of line
+            return NULL;
+        default:
+            break;
+        }
+        assert(paren_count >= 0);
+        next_pos++;
+    }
+    return NULL;
+}
+
+static struct Code *parse_macro_args(int *error)
+{
+    struct Code *code;
+
+    if (!split_macro_arg()) {
+        *error = 1;
+        return NULL;
+    }
+
+    code = NEW0(struct Code);
+    code->type = ARG_CODE;
+    code->u.c.str = read_pos;
+    code->u.c.len = next_pos - read_pos;
+    read_pos = next_pos + 1;
+    if (*next_pos == ',') {
+        code->next = parse_macro_args(error);
+        if (*error) {
+            free(code);
+            return NULL;
+        }
+    }
+    assert(*next_pos == ')');
+    return code;
+}
+
+
+static struct Code *parse_macro(enum MacroType mtype)
+{
+    struct Code *code = NEW0(struct Code);
+    int error;
+
+    code->type = MACRO_CODE;
+    code->u.m.type = mtype;
+    code->u.m.args = parse_macro_args(&error);
+    if (error)
+        goto cleanup;
+    if (code->u.m.args) {
+        read_pos = next_pos + 1;
+        code->next = parse_fortran();
+        if (code->next)
+            return code;
+    }
+    // XXX expected macro argument
+ cleanup:
+    free_code(code);
+    return NULL;
+}
+
+/* Scan code for an assert macro, returning the start of the macro if found or
+ * NULL if not. The out param type returns the assertion type, and afterp is
+ * set to point immediately after the macro's opening paren.
+ */
+static char *find_assert(enum MacroType *type)
+{
+    size_t len = next_line_pos - read_pos;
+    char *assert;
+
+    assert = strncasestr(read_pos, len, "assert_", 7);
+    if (assert) {
+        char *s = assert + 7;
+        size_t rest_len = next_line_pos - s;
+        if (rest_len > 6 && !strncasecmp(s, "array_", 6)) { // accept _array
+            s += 6;
+            rest_len -= 6;
+            if (rest_len > 10 && !strncasecmp(s, "equal_with", 10)) {
+                next_pos = s + 10;
+                *type = ASSERT_ARRAY_EQUAL_WITH;
+            } else if (rest_len > 5 && !strncasecmp(s, "equal", 5)) {
+                next_pos = s + 5;
+                *type = ASSERT_ARRAY_EQUAL;
+            } else {
+                assert = NULL; // not an assert macro
+            }
+        } else if (rest_len >  4 && !strncasecmp(s, "true",        4)) {
+            next_pos = s + 4;
+            *type = ASSERT_TRUE;
+        } else if (rest_len >  5 && !strncasecmp(s, "false",       5)) {
+            next_pos = s + 5;
+            *type = ASSERT_FALSE;
+        } else if (rest_len > 10 && !strncasecmp(s, "equal_with", 10)) {
+            next_pos = s + 10;
+            *type = ASSERT_EQUAL_WITH;
+        } else if (rest_len >  5 && !strncasecmp(s, "equal",       5)) {
+            next_pos = s + 5;
+            *type = ASSERT_EQUAL;
+        } else if (rest_len >  9 && !strncasecmp(s, "not_equal",   9)) {
+            next_pos = s + 9;
+            *type = ASSERT_NOT_EQUAL;
+        } else {
+            assert = NULL; // not an assert macro
+        }
+    } else {
+        assert = strncasestr(read_pos, len, "flunk",  5);
+        if (assert) {
+            next_pos = assert + 5;
+            *type = FLUNK;
+        } else {
+            assert = NULL; // no assertions found
+        }
+    }
+
+    if (assert) {
+        // find open paren
+        while (next_pos < next_line_pos) {
+            switch (*next_pos) {
+            case ' ':
+            case '\t':
+                next_pos++;
+                break;
+            case '(':
+                next_pos++;
+                read_pos = assert;
+                return assert;
+            default:
+                // XXX expected '('
+                return NULL;
+            }
+        }
+    }
+    return NULL;
+}
+
 static int same_token(const char *expected, size_t expected_len,
                       const char *actual, size_t actual_len)
 {
@@ -373,29 +638,52 @@ static int next_is_suite_end_token(void)
 static struct Code *parse_fortran(void)
 {
     struct Code *code = NEW0(struct Code);
-    char *start = line_pos, *tok;
+    char *start = read_pos, *tok, *save_pos;
+    enum MacroType mtype;
     size_t len;
 
+    code->type = FORTRAN_CODE;
+
     // read lines until a recognized end sequence appear
-    while (line_pos < file_end) {
+    while (read_pos < file_end) {
+puts("line of fortran code:");
+fwrite(read_pos, next_line_pos - read_pos, 1, stdout);
+puts("");
         // look for end sequence
+        save_pos = read_pos;
         tok = next_token(&len);
         assert(tok != NULL);
         if (is_suite_token(tok, len) ||
             (same_token("end", 3, tok, len) && next_is_suite_end_token())) {
             break;
+        } else { // not found, this is fortran
+            read_pos = save_pos;
         }
-        // if not found, continue
-        next_line();
+
+        if (find_assert(&mtype)) {
+            //  record initial fortran code
+            code->u.c.str = start;
+            code->u.c.len = read_pos - start;
+            // parse the macro
+            read_pos = next_pos;
+            code->next = parse_macro(mtype);
+            // parse_macro recurses to parse more code, so just return here
+            if (!code->next)
+                goto error;
+            return code;
+        } else {
+            next_line();
+        }
     }
     if (line_pos < file_end) { // found non-fortran code
         // record bounds of fortran code
-        code->str = start;
-        code->len = line_pos - start;
+        code->u.c.str = start;
+        code->u.c.len = line_pos - start;
         next_pos = read_pos = line_pos;
         return code;
     }
     syntax_error();
+ error:
     free_code(code);
     return NULL;
 }
@@ -498,7 +786,7 @@ static struct Code *parse_support(const char *kind)
         goto err;
 
     printf("code: '");
-    fwrite(code->str, code->len, 1, stdout);
+    fwrite(code->u.c.str, code->u.c.len, 1, stdout);
     printf("'\n");
 
     if (parse_end_sequence(kind, NULL, 0))
@@ -655,15 +943,10 @@ printf("'\n");
                 break; // end of test suite
             } else { // fortran code
                 struct Code *code;
-puts("found fortran code");
                 next_pos = read_pos = line_pos;
                 code = parse_fortran();
                 code->next = suite->code;
                 suite->code = code;
-puts("got fortran code");
-printf("leaving = '");
-fwrite(line_pos, next_line_pos - line_pos, 1, stdout);
-puts("'");
             }
         } else { // EOF
             fail(read_pos, "expected end test_suite");
@@ -726,13 +1009,6 @@ struct TestSuite *parse_suite_file(const char *path)
     }
     for (;;) {
         token = next_token(&toklen);
-        if (token && token != END_OF_LINE) {
-printf("root token = '");
-fwrite(token, toklen, 1, stdout);
-printf("'\n");
-        } else {
-printf("root token = %p\n", token);
-        }
         if (same_token("test_suite", 10, token, toklen)) {
             struct TestSuite *suite = parse_suite();
             if (!suite) // parse failure

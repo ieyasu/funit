@@ -13,16 +13,67 @@ void print_dependency(struct TestDependency *dep)
 
 void print_code(char *label, struct Code *code)
 {
-    if (code->next)
-        print_code(label, code->next);
+    if (!label || code->type != FORTRAN_CODE) {
+        switch (code->type) {
+        case FORTRAN_CODE:
+            label = "  Code";
+            break;
+        case MACRO_CODE:
+            label = "  Macro";
+            break;
+        case ARG_CODE:
+            label = "    Arg";
+            break;
+        }
+    }
+    printf("  %s: ", label);
 
-    printf("%s: ", label);
-    if (code->len < 50) {
-        fwrite(code->str, code->len, 1, stdout);
+    if (code->type == MACRO_CODE) {
+        switch (code->u.m.type) {
+        case ASSERT_TRUE:
+            puts("assert_true");
+            break;
+        case ASSERT_FALSE:
+            puts("assert_false");
+            break;
+        case ASSERT_EQUAL:
+            puts("assert_equal");
+            break;
+        case ASSERT_NOT_EQUAL:
+            puts("assert_not_equal");
+            break;
+        case ASSERT_EQUAL_WITH:
+            puts("assert_equal_with");
+            break;
+        case ASSERT_ARRAY_EQUAL:
+            puts("assert_array_equal");
+            break;
+        case ASSERT_ARRAY_EQUAL_WITH:
+            puts("assert_array_equal_with");
+            break;
+        case FLUNK:
+            puts("flunk");
+            break;
+        }
     } else {
-        fwrite(code->str, 25, 1, stdout);
-        fputs("...", stdout);
-        fwrite(code->str + code->len - 25, 25, 1, stdout);
+        printf("'");
+        if (code->u.c.len < 50) {
+            fwrite(code->u.c.str, code->u.c.len, 1, stdout);
+        } else {
+            fwrite(code->u.c.str, 25, 1, stdout);
+            fputs("...", stdout);
+            fwrite(code->u.c.str + code->u.c.len - 25, 25, 1, stdout);
+        }
+        printf("'\n");
+    }
+
+    if (code->type == MACRO_CODE && code->u.m.args)
+        print_code(NULL, code->u.m.args);
+
+    if (code->next) {
+        if (code->type != FORTRAN_CODE)
+            label = NULL;
+        print_code(label, code->next);
     }
 }
 

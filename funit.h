@@ -1,12 +1,39 @@
 #ifndef FUNIT_H
 #define FUNIT_H
 
+#include <assert.h>
 #include <stdlib.h>
+
+enum CodeType {
+    FORTRAN_CODE,
+    MACRO_CODE,
+    ARG_CODE
+};
+
+enum MacroType {
+    ASSERT_TRUE,
+    ASSERT_FALSE,
+    ASSERT_EQUAL,
+    ASSERT_NOT_EQUAL,
+    ASSERT_EQUAL_WITH,
+    ASSERT_ARRAY_EQUAL,
+    ASSERT_ARRAY_EQUAL_WITH,
+    FLUNK
+};
 
 struct Code {
     struct Code *next;
-    char *str;
-    size_t len;
+    enum CodeType type;
+    union {
+        struct {
+            char *str;
+            size_t len;
+        } c;
+        struct {
+            enum MacroType type;
+            struct Code *args;
+        } m;
+    } u;
 };
 
 struct TestDependency {
