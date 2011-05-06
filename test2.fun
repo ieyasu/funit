@@ -1,7 +1,7 @@
 test_suite suite name
   dep "../file1.F90"
   dep "../file2.F90"
-  !mod "a_module"
+  mod a_module
 
   tolerance 0.00001
 

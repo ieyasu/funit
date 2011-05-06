@@ -28,8 +28,7 @@ Tests are written with special syntax around Fortran code implementing each test
     test_suite suite-name
       dep "../file1.F90"
       dep "../file2.F90"
-    
-      use a_module
+      mod a_module
     
       tolerance 0.00001
 

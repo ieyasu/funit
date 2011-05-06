@@ -796,6 +796,23 @@ static struct TestDependency *parse_dependency(void)
     return dep;
 }
 
+static struct TestModule *parse_module(void)
+{
+    struct TestModule *mod = NEW0(struct TestModule);
+
+    mod->name = next_token(&mod->len);
+    if (mod->name == END_OF_LINE) {
+        fail(read_pos, "expected a module name");
+        free(mod);
+        return NULL;
+    }
+    if (expect_eol()) {
+        free(mod);
+        return NULL;
+    }
+    return mod;
+}
+
 static struct Code *parse_support(const char *kind)
 {
     struct Code *code = NULL;
@@ -917,6 +934,13 @@ static struct TestSuite *parse_suite(void)
                 dep->next = suite->deps;
                 suite->deps = dep;
                 suite->n_deps++;
+            } else if (same_token("mod", 3, tok, len)) {
+                struct TestModule *mod = parse_module();
+                if (!mod)
+                    goto err;
+                mod->next = suite->mods;
+                suite->mods = mod;
+                suite->n_mods++;
             } else if (same_token("tolerance", 9, tok, len)) {
                 char *tolend;
                 tok = next_token(&len);

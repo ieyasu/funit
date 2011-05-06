@@ -43,6 +43,12 @@ struct TestDependency {
     size_t len;
 };
 
+struct TestModule {
+    struct TestModule *next;
+    char *name;
+    size_t len;
+};
+
 struct TestRoutine {
     struct TestRoutine *next;
     char *name;
@@ -53,10 +59,11 @@ struct TestRoutine {
 struct TestSuite {
     struct TestSuite *next;
     struct TestDependency *deps;
+    struct TestModule *mods;
     struct Code *setup, *teardown;
     struct TestRoutine *tests;
     struct Code *code;
-    int n_deps, n_tests;
+    int n_deps, n_mods, n_tests;
     char *name;
     size_t name_len;
     double tolerance;

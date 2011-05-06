@@ -539,6 +539,16 @@ static void generate_test_call(struct TestSuite *suite,
         fputs("  call funit_teardown\n\n", stdout);
 }
 
+static void print_use(struct TestModule *mod)
+{
+    if (mod->next)
+        print_use(mod->next);
+
+    fputs("  use ", stdout);
+    fwrite(mod->name, mod->len, 1, stdout);
+    fputs("\n", stdout);
+}
+
 static int generate_suite(struct TestSuite *suite, int *suite_i)
 {
     int test_i;
@@ -550,7 +560,10 @@ static int generate_suite(struct TestSuite *suite, int *suite_i)
 
     *suite_i += 1;
     printf("subroutine funit_suite%i\n", *suite_i);
-    fputs("  use funit\n\n", stdout);
+    fputs("  use funit\n", stdout);
+    if (suite->mods)
+        print_use(suite->mods);
+    fputs("\n", stdout);
     fputs("  implicit none\n\n", stdout);
     fputs("  character*1024 :: funit_message_\n", stdout);
     fputs("  logical :: funit_passed_\n\n", stdout);
