@@ -2,6 +2,7 @@
 #define FUNIT_H
 
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 enum CodeType {
@@ -88,5 +89,8 @@ extern const char *test_suite_file_name;
 // Parser interface
 struct TestSuite *parse_suite_file(const char *path);
 void close_suite_and_free(struct TestSuite *suites);
+
+// Code generator
+int generate_code_file(struct TestSuite *suites, FILE *fout);
 
 #endif // FUNIT_H
