@@ -21,3 +21,4 @@ test_suite suite name
     test_blah("this must not expand")
   end test case1
 end test_suite
+

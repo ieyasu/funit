@@ -1,4 +1,4 @@
-#include "funit.h"
+#include "../../funit.h"
 #include <stdio.h>
 
 void print_dependency(struct TestDependency *dep)
@@ -8,6 +8,16 @@ void print_dependency(struct TestDependency *dep)
 
     printf("  Dep: '");
     fwrite(dep->filename, dep->len, 1, stdout);
+    puts("'");
+}
+
+void print_module(struct TestModule *mod)
+{
+    if (mod->next)
+        print_module(mod->next);
+
+    printf("  Mod: '");
+    fwrite(mod->name, mod->len, 1, stdout);
     puts("'");
 }
 
@@ -54,16 +64,13 @@ void print_code(char *label, struct Code *code)
         case FLUNK:
             puts("flunk");
             break;
+        default:
+            printf("macro type %i unknown!", code->u.m.type);
+            abort();
         }
     } else {
         printf("'");
-        if (code->u.c.len < 50) {
-            fwrite(code->u.c.str, code->u.c.len, 1, stdout);
-        } else {
-            fwrite(code->u.c.str, 25, 1, stdout);
-            fputs("...", stdout);
-            fwrite(code->u.c.str + code->u.c.len - 25, 25, 1, stdout);
-        }
+        fwrite(code->u.c.str, code->u.c.len, 1, stdout);
         printf("'\n");
     }
 
@@ -106,9 +113,14 @@ void print_suite(struct TestSuite *suite)
     }
 
     printf("  # deps: %d\n", suite->n_deps);
+    printf("  # mods: %d\n", suite->n_mods);
     printf("  # tests: %d\n", suite->n_tests);
 
-    print_dependency(suite->deps);
+    if (suite->deps)
+        print_dependency(suite->deps);
+
+    if (suite->mods)
+        print_module(suite->mods);
 
     if (suite->code)
         print_code("  Code", suite->code);
@@ -119,7 +131,8 @@ void print_suite(struct TestSuite *suite)
     if (suite->teardown)
         print_code("  Teardown", suite->teardown);
 
-    print_test(suite->tests);
+    if (suite->tests)
+        print_test(suite->tests);
 
     puts("");
 }

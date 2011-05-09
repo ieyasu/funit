@@ -149,8 +149,6 @@ static void fail(const char *col, const char *message)
     }
     // error message
     fprintf(stderr, "Error: %s\n", message);
-
-    abort();
 }
 
 static void vfail(const char *col, const char *format, ...)
@@ -175,10 +173,13 @@ static void syntax_error(void)
  */
 static char *next_line(void)
 {
+    char *prev_line;
+
     assert(file_buf != NULL);
 
     if (line_pos) {
         assert(next_line_pos >= line_pos || line_pos == file_end);
+        prev_line = line_pos;
         line_pos = next_line_pos;
         // read past \r\n
         while (line_pos < file_end) {
@@ -196,8 +197,12 @@ static char *next_line(void)
             }
             line_pos++;
         }
-        if (line_pos >= file_end)
+        if (line_pos >= file_end) {
+            line_pos = prev_line;
+            lineno--;
+            read_pos = file_end;
             return NULL;
+        }
     } else { // very first line
         line_pos = file_buf;
         lineno = 1;
@@ -402,7 +407,8 @@ static char *skip_line_continuation(int in_string)
     }
     while (next_pos < file_end) {
         char *save_read_pos = read_pos;
-        next_line();
+        if (!next_line())
+            break;
         read_pos = save_read_pos;
         skip_next_ws();
         switch (*next_pos) {
@@ -669,7 +675,7 @@ static struct Code *parse_fortran(void)
     code->type = FORTRAN_CODE;
     code->lineno = lineno;
 
-    // read lines until a recognized end sequence appear
+    // read lines until a recognized end sequence appears
     while (read_pos < file_end) {
         // look for end sequence
         save_pos = read_pos;
@@ -677,6 +683,8 @@ static struct Code *parse_fortran(void)
         assert(tok != NULL);
         if (is_suite_token(tok, len) ||
             (same_token("end", 3, tok, len) && next_is_suite_end_token())) {
+            break;
+        } else if (read_pos == file_end) {
             break;
         } else { // not found, this is fortran
             read_pos = save_pos;
@@ -718,7 +726,10 @@ static int expect_eol(void)
         syntax_error();
         return -1;
     }
-    next_line();
+    if (!next_line()) {
+        fail(read_pos, "expected a newline");
+        return -1;
+    }
     return 0;
 }
 
@@ -841,6 +852,10 @@ static struct TestRoutine *parse_test(void)
     routine->name = expect_name(&routine->name_len, "test");
     if (!routine->name)
         goto err;
+    if (memchr(routine->name, '"', routine->name_len)) {
+        fail(read_pos, "double quotes (\") not allowed in test names");
+        goto err;
+    }
 
     if (expect_eol())
         goto err;
@@ -858,52 +873,9 @@ static struct TestRoutine *parse_test(void)
     return NULL;
 }
 
-static struct TestDependency *concat_deps(struct TestDependency *list1,
-                                          struct TestDependency *list2)
-{
-    struct TestDependency *d = list1;
-
-    while (d->next)
-        d = d->next;
-    d->next = list2;
-
-    return list1;
-}
-
-// XXX need a way to add to the code search path for use -module- and
-// XXX dep <-file-> stuff
-
-static struct TestDependency *parse_fortran_deps(struct Code *code)
-{
-    struct TestDependency *deps = NULL;
-
-    if (code->next)
-        deps = parse_fortran_deps(code->next);
-
-    // XXX do the parsing thing (looking for modules)
-    // XXX if dep found, create new dep node and add to front of list
-
-    return deps;
-}
-
-static struct TestDependency *parse_test_deps(struct TestRoutine *routine)
-{
-    struct TestDependency *deps = NULL, *deps2;
-
-    if (routine->next)
-        deps = parse_test_deps(routine->next);
-
-    deps2 = parse_fortran_deps(routine->code);
-    if (deps2)
-        deps = concat_deps(deps2, deps);
-
-    return deps;
-}
-
 static struct TestSuite *parse_suite(void)
 {
     struct TestSuite *suite = NEW0(struct TestSuite);
-    struct TestDependency *deps;
     char *tok;
     size_t len;
 
@@ -997,16 +969,6 @@ static struct TestSuite *parse_suite(void)
     if (parse_end_sequence("test_suite", suite->name, suite->name_len))
         goto err;
 
-    // parse fortran source for more dependencies
-    if (suite->code) {
-        deps = parse_fortran_deps(suite->code);
-        if (deps)
-            suite->deps = concat_deps(deps, suite->deps);
-    }
-    deps = parse_test_deps(suite->tests);
-    if (deps)
-        suite->deps = concat_deps(deps, suite->deps);
-
     return suite;
  err:
     free_suites(suite);
@@ -1061,7 +1023,6 @@ struct TestSuite *parse_suite_file(const char *path)
                 } else {
                     parse_success = -1;
                 }
-                assert(line_pos == file_end);
                 break;
             }
         } else {
