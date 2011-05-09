@@ -27,7 +27,7 @@ test_suite suite name
     print *, 'hello'
   end test case2
 
-  test case3
+  test the third case
     assert_equal(5.0, 7.0 - 2)
     assert_not_equal(4, &
 !4 + 1)
@@ -35,5 +35,5 @@ test_suite suite name
     flunk("if that & ""that' ( didn't stop it, &
            &this &
 will")
-  end test case3
+  end test
 end test_suite

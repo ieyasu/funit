@@ -521,10 +521,11 @@ static void generate_support(struct Code *code, const char *type)
 }
 
 static void generate_test_call(struct TestSuite *suite,
-                        struct TestRoutine *test, int *test_i)
+                               struct TestRoutine *test, int *test_i,
+                               size_t max_name)
 {
     if (test->next)
-        generate_test_call(suite, test->next, test_i);
+        generate_test_call(suite, test->next, test_i, max_name);
 
     *test_i += 1;
 
@@ -534,7 +535,7 @@ static void generate_test_call(struct TestSuite *suite,
     printf("  call funit_test%i(funit_passed_, funit_message_)\n", *test_i);
     fputs("  call pass_fail(funit_passed_, funit_message_, \"", stdout);
     fwrite(test->name, test->name_len, 1, stdout);
-    fputs("\")\n", stdout);
+    fprintf(stdout, "\", %u)\n", (unsigned int)max_name);
     if (suite->teardown)
         fputs("  call funit_teardown\n\n", stdout);
 }
@@ -547,6 +548,21 @@ static void print_use(struct TestModule *mod)
     fputs("  use ", stdout);
     fwrite(mod->name, mod->len, 1, stdout);
     fputs("\n", stdout);
+}
+
+static void max_name_width(struct TestRoutine *test, size_t *max)
+{
+    if (test->name_len > *max)
+        *max = test->name_len;
+    if (test->next)
+        max_name_width(test->next, max);
+}
+
+static size_t max_test_name_width(struct TestRoutine *test)
+{
+    size_t max = 0;
+    max_name_width(test, &max);
+    return max + 2;
 }
 
 static int generate_suite(struct TestSuite *suite, int *suite_i)
@@ -570,8 +586,9 @@ static int generate_suite(struct TestSuite *suite, int *suite_i)
     if (suite->code)
         generate_code(suite->code);
     if (suite->tests) {
+        size_t max_name = max_test_name_width(suite->tests);
         test_i = 0;
-        generate_test_call(suite, suite->tests, &test_i);
+        generate_test_call(suite, suite->tests, &test_i, max_name);
     }
     fputs("contains\n\n", stdout);
     if (suite->setup)
@@ -597,7 +614,7 @@ static void generate_suite_call(struct TestSuite *suite, int *suite_i)
     fputs("\n  call start_suite(\"", stdout);
     fwrite(suite->name, suite->name_len, 1, stdout);
     fputs("\")\n", stdout);
-    printf("  call funit_suite%i\n", *suite_i);
+    fprintf(stdout, "  call funit_suite%i\n", *suite_i);
 }
 
 static void generate_main(struct TestSuite *suite, int *suite_i)

@@ -25,19 +25,22 @@ const char module_code[] = \
   "    print *, \"Running \", suite_name\n" \
   "  end subroutine start_suite\n" \
   "\n" \
-  "  subroutine pass_fail(passed, message, test_name)\n" \
+  "  subroutine pass_fail(passed, message, test_name, max_name_width)\n" \
   "    implicit none\n" \
   "\n" \
   "    logical,intent(in) :: passed\n" \
   "    character(*),intent(in) :: message, test_name\n" \
+  "    integer,intent(in) :: max_name_width\n" \
+  "    character(len=max_name_width) :: wide_name\n" \
   "\n" \
+  "    wide_name = adjustl(test_name)\n" \
   "    if (passed) then\n" \
   "       pass_count = pass_count + 1\n" \
-  "       write (*,'(\"  test \",A,A,\"[32m\",\" PASSED\",A,\"[39m\")') test_name, &\n" \
+  "       write (*,'(\"  test \",A,A,\"[32m\",\" PASSED\",A,\"[39m\")') wide_name, &\n" \
   "            char(27), char(27)\n" \
   "    else\n" \
   "       fail_count = fail_count + 1\n" \
-  "       write (*,'(\"  test \",A,A,\"[31m\",\" FAILED\",A,\"[39m\")') test_name, &\n" \
+  "       write (*,'(\"  test \",A,A,\"[31m\",\" FAILED\",A,\"[39m\")') wide_name, &\n" \
   "            char(27), char(27)\n" \
   "       print *, trim(message)\n" \
   "    end if\n" \
@@ -56,9 +59,9 @@ const char module_code[] = \
   "\n" \
   "    print *, \"\"\n" \
   "\n" \
-  "    ! \"Finished in 3.2 seconds\"\n" \
+  "    ! \"Finished in 3.02 seconds\"\n" \
   "    call cpu_time(cpu_finish)\n" \
-  "    print '(\"Finished in \",F4.1,\" seconds\")', cpu_finish - cpu_start\n" \
+  "    print '(\"Finished in \",F4.2,\" seconds\")', cpu_finish - cpu_start\n" \
   "\n" \
   "    ! \"3 tests in 1 suite, 1 failure\"\n" \
   "    write (test_count_s,*) (pass_count + fail_count)\n" \

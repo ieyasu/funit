@@ -24,19 +24,22 @@ contains
     print *, "Running ", suite_name
   end subroutine start_suite
 
-  subroutine pass_fail(passed, message, test_name)
+  subroutine pass_fail(passed, message, test_name, max_name_width)
     implicit none
 
     logical,intent(in) :: passed
     character(*),intent(in) :: message, test_name
+    integer,intent(in) :: max_name_width
+    character(len=max_name_width) :: wide_name
 
+    wide_name = adjustl(test_name)
     if (passed) then
        pass_count = pass_count + 1
-       write (*,'("  test ",A,A,"[32m"," PASSED",A,"[39m")') test_name, &
+       write (*,'("  test ",A,A,"[32m"," PASSED",A,"[39m")') wide_name, &
             char(27), char(27)
     else
        fail_count = fail_count + 1
-       write (*,'("  test ",A,A,"[31m"," FAILED",A,"[39m")') test_name, &
+       write (*,'("  test ",A,A,"[31m"," FAILED",A,"[39m")') wide_name, &
             char(27), char(27)
        print *, trim(message)
     end if
@@ -55,9 +58,9 @@ contains
 
     print *, ""
 
-    ! "Finished in 3.2 seconds"
+    ! "Finished in 3.02 seconds"
     call cpu_time(cpu_finish)
-    print '("Finished in ",F4.1," seconds")', cpu_finish - cpu_start
+    print '("Finished in ",F4.2," seconds")', cpu_finish - cpu_start
 
     ! "3 tests in 1 suite, 1 failure"
     write (test_count_s,*) (pass_count + fail_count)
