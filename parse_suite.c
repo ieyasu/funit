@@ -609,6 +609,13 @@ static char *find_macro(enum MacroType *type)
     }
 
     if (assert) {
+        // make sure not commented out
+        char *s = assert;
+        while (--s >= line_pos) {
+            if (*s == '!')
+                return NULL;
+        }
+
         // find open paren
         while (next_pos < next_line_pos) {
             switch (*next_pos) {
