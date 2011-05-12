@@ -569,7 +569,9 @@ static int generate_test(struct TestRoutine *test, int *test_i)
     fputs("    implicit none\n\n", fout);
     fputs("    logical, intent(out) :: funit_passed_\n", fout);
     fputs("    character(*), intent(out) :: funit_message_\n", fout);
-    fputs("    integer :: funit_i_\n\n", fout);
+    if (test->need_array_iterator)
+        fputs("    integer :: funit_i_\n", fout);
+    fputs("\n", fout);
 
     if (test->code) {
         if (generate_code(test->code))

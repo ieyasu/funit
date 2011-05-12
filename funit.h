@@ -54,6 +54,7 @@ struct TestRoutine {
     struct TestRoutine *next;
     char *name;
     size_t name_len;
+    int need_array_iterator;
     struct Code *code;
 };
 

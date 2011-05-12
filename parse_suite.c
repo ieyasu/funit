@@ -48,6 +48,7 @@ static char *file_buf = NULL, *file_end = NULL;
 static char *line_pos = NULL, *next_line_pos = NULL;
 static char *read_pos = NULL, *next_pos = NULL;
 static long lineno = 0;
+static int need_array_iterator = 0;
 
 
 static struct Code *parse_fortran(void);
@@ -859,12 +860,16 @@ static struct TestRoutine *parse_test(void)
     if (expect_eol())
         goto err;
 
+    need_array_iterator = 0;
+
     routine->code = parse_fortran();
     if (!routine->code)
         goto err;
 
     if (parse_end_sequence("test", routine->name, routine->name_len))
         goto err;
+
+    routine->need_array_iterator = need_array_iterator;
 
     return routine;
  err:
