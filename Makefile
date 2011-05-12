@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -Wall -std=c99
+CFLAGS = -g -Wall -std=c99 -D_POSIX_C_SOURCE=2
 LFLAGS =
 
 OBJS = funit.o parse_suite.o generate_code.o
@@ -9,7 +9,7 @@ OBJS = funit.o parse_suite.o generate_code.o
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
-all: test funit
+all: funit
 
 funit: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LFLAGS)
