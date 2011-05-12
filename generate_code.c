@@ -232,7 +232,9 @@ static int generate_assert_equal(struct Code *macro)
     fputs(")) then\n", fout);
     fputs("      write(funit_message_,*) \"'",fout);
     print_macro_arg(a);
-    fputs("' is not equal to '", fout);
+    fputs("' (\", ", fout);
+    PRINT_CODE(a);
+    fputs(", &\n\") is not equal to '", fout);
     print_macro_arg(b);
     fputs("'\"\n", fout);
     fputs("      funit_passed_ = .false.\n", fout);
@@ -266,7 +268,9 @@ static int generate_assert_not_equal(struct Code *macro)
     fputs(")) then\n", fout);
     fputs("      write(funit_message_,*) \"'",fout);
     print_macro_arg(a);
-    fputs("' is equal to '", fout);
+    fputs("' (\", ", fout);
+    PRINT_CODE(a);
+    fputs(", &\n\") is equal to '", fout);
     print_macro_arg(b);
     fputs("'\"\n", fout);
     fputs("      funit_passed_ = .false.\n", fout);
@@ -321,7 +325,9 @@ static int generate_assert_equal_with(struct Code *macro)
     fprintf(fout, ")) > %g) then\n", this_tolerance);
     fputs("      write(funit_message_,*) \"'",fout);
     print_macro_arg(a);
-    fprintf(fout, "' is not within %g of '", this_tolerance);
+    fputs("' (\", ", fout);
+    PRINT_CODE(a);
+    fprintf(fout, ", &\n\") is not within %g of '", this_tolerance);
     print_macro_arg(b);
     fputs("'\"\n", fout);
     fputs("      funit_passed_ = .false.\n", fout);
@@ -662,7 +668,7 @@ static int generate_suite(struct TestSuite *suite, int *suite_i)
         test_i = 0;
         generate_test_call(suite, suite->tests, &test_i, max_name);
     }
-    fputs("\ncontains\n\n", fout);
+    fputs("contains\n\n", fout);
     if (suite->setup)
         generate_support(suite->setup, "setup");
     if (suite->teardown)
