@@ -1,3 +1,6 @@
+*Note:* I abandoned this project ages ago when it became clear that no one besides myself here at work was interested in using this, and I haven't been writing any new Fortran lately.  It is incomplete; use it at your own risk.
+
+
 FUnit Fortran Unit Testing Framework
 ====================================
 
@@ -7,17 +10,27 @@ This unit testing framework aims to be nicer and more flexible than existing uni
 Installation
 ============
 
-    $ gem install funit
+Edit the Makefile for your system.  Type +make+.  If this succeeds it will produce a command +funit+.  Place this somewhere in your path.
 
-    $ ./configure && make && make install
+I tried to learn autotools once and gave up.  I may write a configure script at some point, but if you know how, I would accept a contribution to the project.
 
 
 Getting Started
 ===============
 
-    $ fu init
+Write your tests (described below) in a file ending in '.fun'.  For now, you will have to generate the Fortran test code file with funit, then compile it and run the test program yourself, e.g.:
 
-- creates test/ structure with fixtures/, example test suite, config file, etc.
+    $ funit -o test.f90 test.fun
+    $ gfortran -o test test.f90
+    $ ./test
+     Running all macros
+      test all macros   FAILED
+      'an .and. expression' is false
+    
+    Finished in 0.00 seconds
+    1 tests in 1 suites, 1 failures
+
+In the future, this will be handled more automatically.
 
 
 Writing Tests
@@ -70,7 +83,9 @@ The array assertions should be given array variable names rather than complex ex
 Running Tests
 =============
 
-    $ fu test/test_XXX.fun
+*Note:* this is not working yet!
+
+    $ funit test/test_XXX.fun
 
     Building suite-name...
     Running suite-name
