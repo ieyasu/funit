@@ -48,10 +48,9 @@ static char *file_buf = NULL, *file_end = NULL;
 static char *line_pos = NULL, *next_line_pos = NULL;
 static char *read_pos = NULL, *next_pos = NULL;
 static long lineno = 0;
-static int need_array_iterator = 0;
 
 
-static struct Code *parse_fortran(void);
+static struct Code *parse_fortran(int *);
 
 static void free_code(struct Code *code)
 {
@@ -532,7 +531,7 @@ static struct Code *parse_macro_args(int *error)
     return code;
 }
 
-static struct Code *parse_macro(enum MacroType mtype)
+static struct Code *parse_macro(enum MacroType mtype, int *need_array_iterator)
 {
     struct Code *code = NEW0(struct Code);
     int error = 0;
@@ -545,7 +544,7 @@ static struct Code *parse_macro(enum MacroType mtype)
         goto cleanup;
     if (code->u.m.args) {
         read_pos = next_pos + 1;
-        code->next = parse_fortran();
+        code->next = parse_fortran(need_array_iterator);
         if (code->next)
             return code;
     }
@@ -559,22 +558,27 @@ static struct Code *parse_macro(enum MacroType mtype)
  * NULL if not. The out param type returns the assertion type, and afterp is
  * set to point immediately after the macro's opening paren.
  */
-static char *find_macro(enum MacroType *type)
+static char *find_macro(enum MacroType *type, int *need_array_iterator)
 {
     size_t len = next_line_pos - read_pos;
     char *assert;
 
     assert = strncasestr(read_pos, len, "assert_", 7);
     if (assert) {
+        if (!need_array_iterator) {
+            fail(assert, "assertions not allowed here");
+        }
         char *s = assert + 7;
         size_t rest_len = next_line_pos - s;
         if (rest_len > 6 && !strncasecmp(s, "array_", 6)) { // accept _array
             s += 6;
             rest_len -= 6;
             if (rest_len > 10 && !strncasecmp(s, "equal_with", 10)) {
+                *need_array_iterator = 1;
                 next_pos = s + 10;
                 *type = ASSERT_ARRAY_EQUAL_WITH;
             } else if (rest_len > 5 && !strncasecmp(s, "equal", 5)) {
+                *need_array_iterator = 1;
                 next_pos = s + 5;
                 *type = ASSERT_ARRAY_EQUAL;
             } else {
@@ -672,7 +676,7 @@ static int next_is_suite_end_token(void)
              same_token(tok, len, "test_suite", 10)));
 }
 
-static struct Code *parse_fortran(void)
+static struct Code *parse_fortran(int *need_array_iterator)
 {
     struct Code *code = NEW0(struct Code);
     char *start = read_pos, *tok, *save_pos;
@@ -697,13 +701,13 @@ static struct Code *parse_fortran(void)
             read_pos = save_pos;
         }
 
-        if (find_macro(&mtype)) {
+        if (find_macro(&mtype, need_array_iterator)) {
             //  record initial fortran code
             code->u.c.str = start;
             code->u.c.len = read_pos - start;
             // parse the macro
             read_pos = next_pos;
-            code->next = parse_macro(mtype);
+            code->next = parse_macro(mtype, need_array_iterator);
             // parse_macro recurses to parse more code, so just return here
             if (!code->next)
                 goto error;
@@ -838,7 +842,7 @@ static struct Code *parse_support(const char *kind)
     if (expect_eol())
         goto err;
 
-    code = parse_fortran();
+    code = parse_fortran(NULL);
     if (!code)
         goto err;
 
@@ -867,16 +871,13 @@ static struct TestRoutine *parse_test(void)
     if (expect_eol())
         goto err;
 
-    need_array_iterator = 0;
-
-    routine->code = parse_fortran();
+    routine->need_array_iterator = 0;
+    routine->code = parse_fortran(&routine->need_array_iterator);
     if (!routine->code)
         goto err;
 
     if (parse_end_sequence("test", routine->name, routine->name_len))
         goto err;
-
-    routine->need_array_iterator = need_array_iterator;
 
     return routine;
  err:
@@ -966,7 +967,7 @@ static struct TestSuite *parse_suite(void)
             } else { // fortran code
                 struct Code *code;
                 next_pos = read_pos = line_pos;
-                code = parse_fortran();
+                code = parse_fortran(NULL);
                 code->next = suite->code;
                 suite->code = code;
             }
