@@ -1,2 +1,4 @@
-test_suite hello
+set hello
   test
+  end test
+end set

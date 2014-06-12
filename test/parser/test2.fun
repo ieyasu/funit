@@ -1,7 +1,7 @@
-test_suite suite name
+set the name
   dep "../file1.F90"
   dep "../file2.F90"
-  mod a_module
+  USE a_module, ONLY : X, y
 
   tolerance 0.00001
 
@@ -36,6 +36,6 @@ test_suite suite name
            &this &
 will")
   end test
-end test_suite
+end set
 
 

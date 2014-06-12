@@ -1,8 +1,8 @@
-test_suite foo
+set foo
   dep "a dependency"
   dep "dep 2"
-  mod this_module
-  mod another_module
+  use this_module
+  use another_module
 
   tolerance 0.0054
 
@@ -14,5 +14,5 @@ test_suite foo
     fix = 0
   end teardown
 
-end test_suite
+end set
 

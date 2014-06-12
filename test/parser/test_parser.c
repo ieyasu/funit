@@ -84,7 +84,7 @@ void print_code(char *label, struct Code *code)
     }
 }
 
-void print_test(struct TestRoutine *test)
+void print_test(struct TestCase *test)
 {
     if (test->next)
         print_test(test->next);
@@ -97,62 +97,59 @@ void print_test(struct TestRoutine *test)
         print_code("    Code", test->code);
 }
 
-void print_suite(struct TestSuite *suite)
+void print_sets(struct TestSet *set)
 {
-    if (suite->next)
-        print_suite(suite->next);
+    if (set->next)
+        print_sets(set->next);
 
-    printf("Suite '");
-    fwrite(suite->name, suite->name_len, 1, stdout);
+    printf("Set '");
+    fwrite(set->name, set->name_len, 1, stdout);
     printf("'\n");
 
-    if (suite->tolerance > 0.0) {
-        printf("  Tolerance %f\n", suite->tolerance);
+    if (set->tolerance > 0.0) {
+        printf("  Tolerance %f\n", set->tolerance);
     } else {
         puts("  No tolerance given");
     }
 
-    printf("  # deps: %d\n", suite->n_deps);
-    printf("  # mods: %d\n", suite->n_mods);
-    printf("  # tests: %d\n", suite->n_tests);
+    printf("  # deps: %d\n", set->n_deps);
+    printf("  # mods: %d\n", set->n_mods);
+    printf("  # test cases: %d\n", set->n_tests);
 
-    if (suite->deps)
-        print_dependency(suite->deps);
+    if (set->deps)
+        print_dependency(set->deps);
 
-    if (suite->mods)
-        print_module(suite->mods);
+    if (set->mods)
+        print_module(set->mods);
 
-    if (suite->code)
-        print_code("  Code", suite->code);
+    if (set->code)
+        print_code("  Code", set->code);
 
-    if (suite->setup)
-        print_code("  Setup", suite->setup);
+    if (set->setup)
+        print_code("  Setup", set->setup);
 
-    if (suite->teardown)
-        print_code("  Teardown", suite->teardown);
+    if (set->teardown)
+        print_code("  Teardown", set->teardown);
 
-    if (suite->tests)
-        print_test(suite->tests);
+    if (set->tests)
+        print_test(set->tests);
 
     puts("");
 }
 
 int main(int argc, char **argv)
 {
-    struct TestSuite *suite;
-    int i;
-
     if (argc == 1) {
         printf("Usage: %s TEST_FILE...\n", argv[0]);
         exit(1);
     }
 
-    for (i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         printf("Parsing %s:\n\n", argv[i]);
-        suite = parse_suite_file(argv[i]);
-        if (suite) {
-            print_suite(suite);
-            close_suite_and_free(suite);
+        struct TestFile *tf = parse_test_file(argv[i]);
+        if (tf && tf->sets) {
+            print_sets(tf->sets);
+            close_testfile(tf);
         } else {
             puts("!!! Parse file returned NULL");
         }

@@ -5,7 +5,9 @@
 // for module_code string variable
 #include "funit_fortran_module.h"
 
+// XXX no more globals!
 static FILE *fout;
+const char *test_set_file_name;
 static double tolerance = -1.0;
 
 static int check_assert_args2(const char *macro_name, struct Code *macro,
@@ -18,7 +20,7 @@ static int check_assert_args2(const char *macro_name, struct Code *macro,
 
     if (!args) {
         fprintf(stderr, "near %s:%li: no arguments to %s()\n",
-                test_suite_file_name, macro->lineno, macro_name);
+                test_set_file_name, macro->lineno, macro_name);
         return -1;
     }
     n = 0;
@@ -35,12 +37,12 @@ static int check_assert_args2(const char *macro_name, struct Code *macro,
  badargs:
     if (min_args == max_args) {
         fprintf(stderr, "near %s:%li: expected %i argument%s to %s()\n",
-                test_suite_file_name, lineno, max_args,
+                test_set_file_name, lineno, max_args,
                 (max_args > 1) ? "s" : "", macro_name);
     } else {
         assert(min_args + 1 == max_args);
         fprintf(stderr, "near %s:%li: expected %i or %i arguments to %s()\n",
-                test_suite_file_name, lineno, min_args, max_args, macro_name);
+                test_set_file_name, lineno, min_args, max_args, macro_name);
     }
     return -1;
 }
@@ -302,8 +304,8 @@ static int generate_assert_equal_with(struct Code *macro)
     if (num_args == 2) {
         if (tolerance <= 0.0) {
             fprintf(stderr, "near %s:%li: missing a tolerance argument or "
-                    "a suite-level default tolerance\n",
-                    test_suite_file_name, macro->lineno);
+                    "a set-level default tolerance\n",
+                    test_set_file_name, macro->lineno);
             return -1;
         }
         this_tolerance = tolerance;
@@ -312,7 +314,7 @@ static int generate_assert_equal_with(struct Code *macro)
         if (this_tolerance <= 0.0) {
             fprintf(stderr, "near %s:%li: in assert_array_equal(): parsed "
                     "a tolerance <= 0.0; you need to fix that\n",
-                    test_suite_file_name, macro->lineno);
+                    test_set_file_name, macro->lineno);
             return -1;
         }
     }
@@ -444,8 +446,8 @@ static int generate_assert_array_equal_with(struct Code *macro)
     if (num_args == 2) {
         if (tolerance <= 0.0) {
             fprintf(stderr, "near %s:%li: in assert_array_equal(): missing "
-                    "a tolerance argument or a suite-level default tolerance\n",
-                    test_suite_file_name, macro->lineno);
+                    "a tolerance argument or a set-level default tolerance\n",
+                    test_set_file_name, macro->lineno);
             return -1;
         }
         this_tolerance = tolerance;
@@ -454,7 +456,7 @@ static int generate_assert_array_equal_with(struct Code *macro)
         if (this_tolerance <= 0.0) {
             fprintf(stderr, "near %s:%li: in assert_array_equal(): parsed "
                     "a tolerance <= 0.0; you need to fix that\n",
-                    test_suite_file_name, macro->lineno);
+                    test_set_file_name, macro->lineno);
             return -1;
         }
     }
@@ -555,7 +557,7 @@ static int generate_code(struct Code *code)
         break;
     default: // arg code
         fprintf(stderr, "near %s:%li: bad code type %i in generate_code\n",
-                test_suite_file_name, code->lineno, (int)code->type);
+                test_set_file_name, code->lineno, (int)code->type);
         abort();
         break;
     }
@@ -564,7 +566,7 @@ static int generate_code(struct Code *code)
     return 0;
 }
 
-static int generate_test(struct TestRoutine *test, int *test_i)
+static int generate_test(struct TestCase *test, int *test_i)
 {
     if (test->next)
         generate_test(test->next, test_i);
@@ -597,24 +599,24 @@ static void generate_support(struct Code *code, const char *type)
     fprintf(fout, "  end subroutine funit_%s\n\n", type);
 }
 
-static void generate_test_call(struct TestSuite *suite,
-                               struct TestRoutine *test, int *test_i,
+static void generate_test_call(struct TestSet *set,
+                               struct TestCase *test, int *test_i,
                                size_t max_name)
 {
     if (test->next)
-        generate_test_call(suite, test->next, test_i, max_name);
+        generate_test_call(set, test->next, test_i, max_name);
 
     *test_i += 1;
 
     fputs("\n", fout);
-    if (suite->setup)
+    if (set->setup)
         fprintf(fout, "  call funit_setup\n");
     fprintf(fout, "  call funit_test%i(funit_passed_, funit_message_)\n",
             *test_i);
     fputs("  call pass_fail(funit_passed_, funit_message_, \"", fout);
     fwrite(test->name, test->name_len, 1, fout);
     fprintf(fout, "\", %u)\n", (unsigned int)max_name);
-    if (suite->teardown)
+    if (set->teardown)
         fputs("  call funit_teardown\n\n", fout);
 }
 
@@ -625,10 +627,13 @@ static void print_use(struct TestModule *mod)
 
     fputs("  use ", fout);
     fwrite(mod->name, mod->len, 1, fout);
+    if (mod->elen > 0) {
+        fwrite(mod->extra, mod->elen, 1, fout);
+    }
     fputs("\n", fout);
 }
 
-static void max_name_width(struct TestRoutine *test, size_t *max)
+static void max_name_width(struct TestCase *test, size_t *max)
 {
     if (test->name_len > *max)
         *max = test->name_len;
@@ -636,90 +641,88 @@ static void max_name_width(struct TestRoutine *test, size_t *max)
         max_name_width(test->next, max);
 }
 
-static size_t max_test_name_width(struct TestRoutine *test)
+static size_t max_test_name_width(struct TestCase *test)
 {
     size_t max = 0;
     max_name_width(test, &max);
     return max + 2;
 }
 
-static int generate_suite(struct TestSuite *suite, int *suite_i)
+static int generate_set(struct TestSet *set, int *set_i)
 {
     int test_i;
 
-    if (suite->next)
-        generate_suite(suite->next, suite_i);
+    if (set->next)
+        generate_set(set->next, set_i);
 
-    tolerance = (suite->tolerance > 0.0) ? suite->tolerance : DEFAULT_TOLERANCE;
+    tolerance = (set->tolerance > 0.0) ? set->tolerance : DEFAULT_TOLERANCE;
 
-    *suite_i += 1;
-    fprintf(fout, "subroutine funit_suite%i\n", *suite_i);
+    (*set_i)++;
+    fprintf(fout, "subroutine funit_set%i\n", *set_i);
     fputs("  use funit\n", fout);
-    if (suite->mods)
-        print_use(suite->mods);
+    if (set->mods)
+        print_use(set->mods);
     fputs("\n", fout);
     fputs("  implicit none\n\n", fout);
     fputs("  character*1024 :: funit_message_\n", fout);
     fputs("  logical :: funit_passed_\n\n", fout);
-    if (suite->code)
-        generate_code(suite->code);
-    if (suite->tests) {
-        size_t max_name = max_test_name_width(suite->tests);
+    if (set->code)
+        generate_code(set->code);
+    if (set->tests) {
+        size_t max_name = max_test_name_width(set->tests);
         test_i = 0;
-        generate_test_call(suite, suite->tests, &test_i, max_name);
+        generate_test_call(set, set->tests, &test_i, max_name);
     }
     fputs("contains\n\n", fout);
-    if (suite->setup)
-        generate_support(suite->setup, "setup");
-    if (suite->teardown)
-        generate_support(suite->setup, "teardown");
-    if (suite->tests) {
+    if (set->setup)
+        generate_support(set->setup, "setup");
+    if (set->teardown)
+        generate_support(set->setup, "teardown");
+    if (set->tests) {
         test_i = 0;
-        if (generate_test(suite->tests, &test_i))
+        if (generate_test(set->tests, &test_i))
             return -1;
     }
-    fprintf(fout, "end subroutine funit_suite%i\n", *suite_i);
+    fprintf(fout, "end subroutine funit_set\n");
 
     return 0;
 }
 
-static void generate_suite_call(struct TestSuite *suite, int *suite_i)
+static void generate_set_call(struct TestSet *set, int *set_i)
 {
-    if (suite->next)
-        generate_suite_call(suite->next, suite_i);
+    if (set->next)
+        generate_set_call(set->next, set_i);
 
-    *suite_i += 1;
-    fputs("\n  call start_suite(\"", fout);
-    fwrite(suite->name, suite->name_len, 1, fout);
+    (*set_i)++;
+    fputs("\n  call start_set(\"", fout);
+    fwrite(set->name, set->name_len, 1, fout);
     fputs("\")\n", fout);
-    fprintf(fout, "  call funit_suite%i\n", *suite_i);
+    fprintf(fout, "  call funit_set%i\n", *set_i);
 }
 
-static void generate_main(struct TestSuite *suite, int *suite_i)
+static void generate_main(struct TestSet *file, int *set_i)
 {
     fputs("\n\nprogram main\n", fout);
     fputs("  use funit\n\n",  fout);
     fputs("  call clear_stats\n", fout);
-    generate_suite_call(suite, suite_i);
+    generate_set_call(file, set_i);
     fputs("\n  call report_stats\n", fout);
     fprintf(fout, "end program main\n");
 }
 
-int generate_code_file(struct TestSuite *suites, FILE *file_out)
+int generate_code_file(struct TestSet *set, FILE *file_out)
 {
-    int suite_i;
-
     // set file-wide out file pointer
     fout = file_out;
 
     // XXX look for this file and emit it if not present
     fputs(module_code, fout);
 
-    suite_i = 0;
-    if (generate_suite(suites, &suite_i))
+    int set_i = 0;
+    if (generate_set(set, &set_i))
         return -1;
-    suite_i = 0;
-    generate_main(suites, &suite_i);
+    set_i = 0;
+    generate_main(set, &set_i);
 
     return 0;
 }

@@ -1,4 +1,4 @@
-test_suite all macros
+set all macros
   tolerance 0.0007
 
   test all macros
@@ -26,5 +26,5 @@ test_suite all macros
 
     flunk("OH NOES")
   end test
-end test_suite
+end set
 

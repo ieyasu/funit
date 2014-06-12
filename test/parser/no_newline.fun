@@ -1,1 +1,1 @@
-test_suite some name
+set some name

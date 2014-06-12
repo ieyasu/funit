@@ -28,7 +28,7 @@ Write your tests (described below) in a file ending in '.fun'.  For now, you wil
       'an .and. expression' is false
     
     Finished in 0.00 seconds
-    1 tests in 1 suites, 1 failures
+    1 tests in 1 sets, 1 failures
 
 In the future, this will be handled more automatically.
 
@@ -36,12 +36,12 @@ In the future, this will be handled more automatically.
 Writing Tests
 =============
 
-Tests are written with special syntax around Fortran code implementing each test.  The special syntax also specifies dependencies which need to be built, setup and teardown routines, etc.
+Tests are written with special syntax around Fortran code implementing each test.  The special syntax also specifies dependencies which need to be built, setup and teardown routines, etc.  By convention, these are saved in files ending in ".fun".
 
-    test_suite suite-name
+    set set-name
       dep "../file1.F90"
       dep "../file2.F90"
-      mod a_module
+      use a_module
     
       tolerance 0.00001
 
@@ -60,7 +60,7 @@ Tests are written with special syntax around Fortran code implementing each test
       test case2
         ...
       end test case2
-    end test_suite
+    end set
 
 Note: dependencies must be quoted and unlike Fortran, the strings must not be continued with an ampersand (&).
 
@@ -87,11 +87,11 @@ Running Tests
 
     $ funit test/test_XXX.fun
 
-    Building suite-name...
-    Running suite-name
+    Building set-name...
+    Running set-name
       test test-name        PASSED
       test name2            PASSED
       test third            FAILED
     
     Finished in 2.3 seconds
-    3 tests in 1 suite, 1 failures
+    3 tests in 1 set, 1 failures

@@ -4,7 +4,7 @@ CFLAGS = -g -Wall -std=c99 -D_POSIX_C_SOURCE=2
 FFLAGS = -g -Wall
 LFLAGS =
 
-OBJS = funit.o parse_suite.o generate_code.o
+OBJS = funit.o parse_test_file.o generate_code.o
 
 .SUFFIXES: .o .c
 
@@ -21,7 +21,7 @@ funit: $(OBJS)
 
 test: test/parser/test_parser
 
-test/parser/test_parser: test/parser/test_parser.o parse_suite.o
+test/parser/test_parser: test/parser/test_parser.o parse_test_file.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LFLAGS)
 
 funit_fortran_module.h: mod_funit.F90

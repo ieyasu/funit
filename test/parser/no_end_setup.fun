@@ -1,7 +1,7 @@
-test_suite foo
+set foo
   setup
     a = 7
   end
 
-end test_suite
+end set
 

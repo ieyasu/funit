@@ -25,7 +25,7 @@ static const char usage[] =
  * is responsible for removing the added TestDependency, as it is not
  * malloc()'d.
  */
-static int file_dependency(char *infile, struct TestSuite *suite)
+static int file_dependency(char *infile, struct TestSet *set)
 {
     static struct TestDependency dep;
     static char buf[PATH_MAX], *test, *dot;
@@ -42,11 +42,11 @@ static int file_dependency(char *infile, struct TestSuite *suite)
             strcat(buf, FTN_EXT);
         }
 
-        // add this dependency to the dep list of each suite
-        while (suite) {
-            dep.next = suite->deps;
-            suite->deps = &dep;
-            suite = suite->next;
+        // add this dependency to the dep list of each set
+        while (set) {
+            dep.next = set->deps;
+            set->deps = &dep;
+            set = set->next;
         }
         return 1;
     }
@@ -78,15 +78,19 @@ static char *make_fortran_name(char *infile)
 
 static int generate_code(char *infile, char *outfile)
 {
-    struct TestSuite *suites, *suite;
+    struct TestFile *tf;
     FILE *fout;
     int code = 0, dep_added;
 
-    suites = parse_suite_file(infile);
-    if (!suites)
+    tf = parse_test_file(infile);
+    if (!tf)
         return -1;
+    if (!tf->sets) {
+        close_testfile(tf);
+        return -1;
+    }
 
-    dep_added = file_dependency(infile, suites);
+    dep_added = file_dependency(infile, tf->sets);
 
     if (!outfile)
         outfile = make_fortran_name(infile);
@@ -97,7 +101,7 @@ static int generate_code(char *infile, char *outfile)
         return -1;
     }
 
-    if (generate_code_file(suites, fout))
+    if (generate_code_file(tf->sets, fout))
         code = -1;
 
     if (fclose(fout)) {
@@ -105,14 +109,14 @@ static int generate_code(char *infile, char *outfile)
         code = -1;
     }
 
-    if (dep_added) {
-        suite = suites;
-        while (suite) {
-            suite->deps = suite->deps->next;
-            suite = suite->next;
+    if (dep_added) { // XXX wtf is this doing?
+        struct TestSet *set = tf->sets;
+        while (set) {
+            set->deps = set->deps->next;
+            set = set->next;
         }
     }
-    close_suite_and_free(suites);
+    close_testfile(tf);
 
     return code;
 }
@@ -138,7 +142,7 @@ int main(int argc, char **argv)
             fputs(usage, stderr);
             return -1;
         default:
-            fprintf(stderr, "%s: unprogrammed option %c\n", argv[0], (char)opt);
+            fprintf(stderr, "%s: unknown option %c\n", argv[0], (char)opt);
             abort();
         }
     }
@@ -154,8 +158,9 @@ int main(int argc, char **argv)
     }
 
     while (optind < argc) {
-        return generate_code(argv[optind], outfile);
-        // XXX build the code with make or sth
+        if (generate_code(argv[optind], outfile) == 0) {
+            // XXX build the code with make or sth
+        }
         optind++;
     }
 

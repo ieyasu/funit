@@ -1,3 +1,3 @@
-test_suite name
-end test_suite name
+set name
+end set name
 

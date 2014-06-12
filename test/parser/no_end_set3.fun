@@ -1,4 +1,4 @@
-test_suite foo
+set foo
   test blah
   end test blah
-end
+end set

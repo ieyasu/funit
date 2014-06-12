@@ -1,4 +1,4 @@
-test_suite suite name
+set some name
   dep "../file1.F90"
   dep "../file2.F90"
 
@@ -20,5 +20,5 @@ test_suite suite name
     ...
     test_blah("this must not expand")
   end test case1
-end test_suite
+end set
 

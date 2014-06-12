@@ -1,3 +1,3 @@
-test_suite hello
+set hello
   test goodbye
 

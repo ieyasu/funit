@@ -3,7 +3,7 @@ const char module_code[] = \
   "  implicit none\n" \
   "  save\n" \
   "\n" \
-  "  integer :: suite_count, pass_count, fail_count\n" \
+  "  integer :: set_count, pass_count, fail_count\n" \
   "  real :: cpu_start, cpu_finish\n" \
   "\n" \
   "contains\n" \
@@ -15,15 +15,15 @@ const char module_code[] = \
   "  !   print *, \"expr\", \"FAILED\"\n" \
   "  ! end if\n" \
   "\n" \
-  "  subroutine start_suite(suite_name)\n" \
+  "  subroutine start_set(set_name)\n" \
   "    implicit none\n" \
   "\n" \
-  "    character(*),intent(in) :: suite_name\n" \
+  "    character(*),intent(in) :: set_name\n" \
   "\n" \
-  "    suite_count = suite_count + 1\n" \
+  "    set_count = set_count + 1\n" \
   "\n" \
-  "    print *, \"Running \", suite_name\n" \
-  "  end subroutine start_suite\n" \
+  "    print *, \"Running \", set_name\n" \
+  "  end subroutine start_set\n" \
   "\n" \
   "  subroutine pass_fail(passed, message, test_name, max_name_width)\n" \
   "    implicit none\n" \
@@ -47,14 +47,14 @@ const char module_code[] = \
   "  end subroutine pass_fail\n" \
   "\n" \
   "  subroutine clear_stats\n" \
-  "    suite_count = 0\n" \
+  "    set_count = 0\n" \
   "    pass_count = 0\n" \
   "    fail_count = 0\n" \
   "    call cpu_time(cpu_start);\n" \
   "  end subroutine clear_stats\n" \
   "\n" \
   "  subroutine report_stats\n" \
-  "    character*16 :: test_count_s, suite_count_s, fail_count_s\n" \
+  "    character*16 :: test_count_s, set_count_s, fail_count_s\n" \
   "    character*2 :: color_code\n" \
   "\n" \
   "    print *, \"\"\n" \
@@ -63,12 +63,12 @@ const char module_code[] = \
   "    call cpu_time(cpu_finish)\n" \
   "    print '(\"Finished in \",F4.2,\" seconds\")', cpu_finish - cpu_start\n" \
   "\n" \
-  "    ! \"3 tests in 1 suite, 1 failure\"\n" \
+  "    ! \"3 tests in 1 set, 1 failure\"\n" \
   "    write (test_count_s,*) (pass_count + fail_count)\n" \
-  "    write (suite_count_s,*) suite_count\n" \
+  "    write (set_count_s,*) set_count\n" \
   "    write (fail_count_s,*) fail_count\n" \
-  "    write (*,'(A,\" tests in \",A,\" suites, \")',advance='no') &\n" \
-  "         trim(adjustl(test_count_s)), trim(adjustl(suite_count_s))\n" \
+  "    write (*,'(A,\" tests in \",A,\" sets, \")',advance='no') &\n" \
+  "         trim(adjustl(test_count_s)), trim(adjustl(set_count_s))\n" \
   "\n" \
   "    if (fail_count > 0) then\n" \
   "       color_code = \"31\" ! red\n" \
