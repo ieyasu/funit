@@ -660,20 +660,26 @@ static int generate_set(struct TestSet *set, int *set_i)
     (*set_i)++;
     fprintf(fout, "subroutine funit_set%i\n", *set_i);
     fputs("  use funit\n", fout);
+    
     if (set->mods)
         print_use(set->mods);
+    
     fputs("\n", fout);
     fputs("  implicit none\n\n", fout);
     fputs("  character*1024 :: funit_message_\n", fout);
     fputs("  logical :: funit_passed_\n\n", fout);
+    
     if (set->code)
         generate_code(set->code);
+    
     if (set->tests) {
         size_t max_name = max_test_name_width(set->tests);
         test_i = 0;
         generate_test_call(set, set->tests, &test_i, max_name);
     }
+    
     fputs("contains\n\n", fout);
+    
     if (set->setup)
         generate_support(set->setup, "setup");
     if (set->teardown)
@@ -683,7 +689,8 @@ static int generate_set(struct TestSet *set, int *set_i)
         if (generate_test(set->tests, &test_i))
             return -1;
     }
-    fprintf(fout, "end subroutine funit_set\n");
+
+    fprintf(fout, "end subroutine funit_set%i\n", *set_i);
 
     return 0;
 }
