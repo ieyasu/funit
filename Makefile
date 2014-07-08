@@ -12,7 +12,7 @@ OBJS = funit.o parse_test_file.o generate_code.o
 	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
 .F90.o:
-	$(FC) $(FFLGS) -c $*.F90 -o $*.o
+	$(FC) $(FFLAGS) -c $*.F90 -o $*.o
 
 all: funit funit.o
 
