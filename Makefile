@@ -30,5 +30,8 @@ funit_fortran_module.h: mod_funit.F90
 clean:
 	rm -f *.o *.mod *~ funit test/parser/*.o test/parser/test_parser
 
+test: funit
+	cd test/code_gen; ./run.sh
+
 # deps
 generate_code.o: generate_code.c funit_fortran_module.h
