@@ -457,33 +457,40 @@ static char *split_macro_arg(struct TestFile *tf)
     while (tf->next_pos < tf->next_line_pos) {
         switch (*tf->next_pos) {
         case '\'':
-        case '"':
+        case '"': // open or close a string
             if (in_string) {
                 if (*tf->next_pos == string_delim) {
-                    if (*(tf->next_pos + 1) == string_delim)
+                    if (*(tf->next_pos + 1) == string_delim) {
                         tf->next_pos++; // doubled to escape
-                    else
+                    } else {
                         in_string = 0; // close quote
+                    }
                 }
             } else {
-                in_string = 1;
+                in_string = -1;
                 string_delim = *tf->next_pos;
             }
             break;
         case '(':
-            if (!in_string)
-                paren_count++;
-            break;
-        case ')':
-        case ',':
             if (!in_string) {
-                if (paren_count == 0)
-                    return tf->next_pos; // closing paren or separating comma
-                else
-                    paren_count--;
+                paren_count++;
             }
             break;
-        case '&':
+        case ')':
+            if (!in_string) {
+                if (paren_count == 0) {
+                    return tf->next_pos; // closing paren or separating comma
+                } else {
+                    paren_count--;
+                }
+            }
+            break;
+        case ',':
+            if (!in_string && paren_count == 0) {
+                return tf->next_pos; // closing paren or separating comma
+            }
+            break;
+        case '&': // line continuation
             if (in_string) {
                 if (!skip_ampersand_in_string(tf))
                     return NULL;
@@ -574,7 +581,7 @@ find_macro(struct TestFile *tf, enum MacroType *type, int *need_array_it)
         }
         char *s = assert_pos + 7;
         size_t rest_len = tf->next_line_pos - s;
-        if (rest_len > 6 && !strncasecmp(s, "array_", 6)) { // accept _array
+        if (rest_len > 6 && !strncasecmp(s, "array_", 6)) { // accept array_
             s += 6;
             rest_len -= 6;
             if (rest_len > 10 && !strncasecmp(s, "equal_with", 10)) {
