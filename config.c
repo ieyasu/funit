@@ -8,45 +8,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#define PATH_BUF_LEN (PATH_MAX + 1)
-
-static int try_open_file(const char *path, struct ParseState *ps)
-{
-    struct stat statbuf;
-    if (fu_stat(path, &statbuf) || statbuf.st_size <= 0) return -1;
-
-    return open_file_for_parsing(path, ps);
-}
-
-// Look in current dir, $HOME, /etc/funitrc, then give up.
-static int find_config_file(char *buf, struct ParseState *ps)
-{
-    // try current directory
-    strcpy(buf, ".funit");
-    if (!try_open_file(buf, ps))
-        return 0;
-
-    // try $HOME
-    char *h = getenv("HOME");
-    if (h) {
-        if (fu_pathcat(buf, PATH_BUF_LEN, h, ".funit")) {
-            fputs("error concatenating 'HOME' env var with '.funit'", stderr);
-            abort();
-        }
-
-        if (!try_open_file(buf, ps)) return 0;
-    } else {
-        fputs("Warning: environment variable 'HOME' not set\n", stderr);
-    }
-
-    // try /etc/funitrc
-    strcpy(buf, "/etc/funitrc");
-    if (!try_open_file(buf, ps))
-        return 0;
-
-    return -1;
-}
-
 static void key_end_finder(struct ParseState *ps)
 {
     while (ps->next_pos < ps->next_line_pos) {
@@ -90,6 +51,35 @@ static char *next_quoted_string(struct ParseState *ps, size_t *len)
     return END_OF_LINE;
 }
 
+static int store_config_value(struct Config *conf, char *key,
+                              char *value, size_t valuelen)
+{
+    if (!conf->build && !strncmp("build", key, 5)) {
+        conf->build = fu_strndup(value, valuelen);
+    } else if (!conf->tempdir && !strncmp("tempdir", key, 7)) {
+        conf->tempdir = fu_strndup(value, valuelen);
+    } else if (!conf->fortran_ext && !strncmp("fortran_ext", key, 11)) {
+        conf->fortran_ext = fu_strndup(value, valuelen);
+    } else if (!conf->template_ext && !strncmp("template_ext", key, 12)) {
+        conf->template_ext = fu_strndup(value, valuelen);
+    } else {
+        return -1;
+    }
+    return 0;
+}
+
+static void parse_fail3(struct ParseState *ps, char *prefix,
+                        char *s, size_t len, char *postfix)
+{
+    struct Buffer msg;
+    init_buffer(&msg, 32);
+    buffer_cat(&msg, prefix);
+    buffer_ncat(&msg, s, len);
+    buffer_cat(&msg, postfix);
+    parse_fail(ps, ps->next_pos, msg.s);
+    free_buffer(&msg);
+}
+
 static int parse_config_setting(struct ParseState *ps, struct Config *conf)
 {
     // config key
@@ -119,7 +109,7 @@ static int parse_config_setting(struct ParseState *ps, struct Config *conf)
         value = next_thing(ps, &valuelen, value_end_finder);
     }
     if (value == END_OF_LINE || valuelen == 0) {
-        parse_fail(ps, ps->next_pos, "missing value");
+        parse_fail3(ps, "missing value for config key \"", key, keylen, "\"");
         return -1;
     }
 
@@ -135,35 +125,18 @@ static int parse_config_setting(struct ParseState *ps, struct Config *conf)
         return -1;
     }
 
-    // store value
-    value = fu_strndup(value, valuelen);
-    if (       !strncmp("build",        key, 5)) {
-        conf->build = value;
-    } else if (!strncmp("tempdir",      key, 7)) {
-        conf->tempdir = value;
-    } else if (!strncmp("fortran_ext",  key, 11)) {
-        conf->fortran_ext = value;
-    } else if (!strncmp("template_ext", key, 12)) {
-        conf->template_ext = value;
-    } else {
-        free(value);
-        struct Buffer msg;
-        init_buffer(&msg, 32);
-        buffer_cat(&msg, "unknown config key \"");
-        buffer_ncat(&msg, key, keylen);
-        buffer_cat(&msg, "\"");
-        msg.s[msg.i] = '\0';
-        parse_fail(ps, key, msg.s);
-        free_buffer(&msg);
-        return -1;
+    if (store_config_value(conf, key, value, valuelen) != 0) {
+        parse_fail3(ps, "unknown config key \"", key, keylen, "\"");
     }
+
     return 0;
 }
 
 /* Read config file line-by-line ignoring comments and empty lines, looking for
  * lines like:
- *     <var> = <value> [#...]
- * where <var> is one of the known config names, and <value> is a 
+ *     <key> = <value> [#...]
+ * where <key> is one of the known config keys, and <value> is the value  for
+ * that key.
  */
 static int parse_config(struct ParseState *ps, struct Config *conf)
 {
@@ -182,11 +155,25 @@ static int parse_config(struct ParseState *ps, struct Config *conf)
             }
             break;
         }
-        if (parse_config_setting(ps, conf)) {
-            return -1;
-        }
+
+        if (parse_config_setting(ps, conf)) return -1;
     }
     return 0;
+}
+
+static int try_parse(char *path, struct Config *conf)
+{
+    struct stat statbuf;
+    if (fu_stat(path, &statbuf) || statbuf.st_size <= 0) return -1;
+
+    struct ParseState ps;
+    int r = open_file_for_parsing(path, &ps);
+    if (r == 0) {
+        r = parse_config(&ps, conf);
+        close_parse_file(&ps);
+    }
+
+    return r;
 }
 
 static char *find_tempdir(void)
@@ -214,8 +201,7 @@ static char *find_tempdir(void)
     return NULL;
 }
 
-static void set_defaults(struct Config *conf)
-{
+static void set_defaults(struct Config *conf) {
     if (!conf->build) {
         conf->build = fu_strdup("make {{EXE}}");
     }
@@ -237,21 +223,36 @@ int read_config(struct Config *conf)
 {
     memset(conf, 0, sizeof(struct Config));
 
-    char config_path[PATH_BUF_LEN];
-    struct ParseState ps;
-    if (find_config_file(config_path, &ps)) {
-        fprintf(stderr, "error: funit config file not found\n");
+    int found_files = 0;
+
+    // try current directory
+    if (try_parse(".funit", conf) == 0) found_files++;
+
+    // try $HOME
+    char *h = getenv("HOME");
+    if (h) {
+        char home_path[PATH_MAX + 1];
+        if (fu_pathcat(home_path, sizeof(home_path), h, ".funit")) {
+            fputs("error concatenating 'HOME' env var with '.funit'", stderr);
+            abort();
+        }
+
+        if (try_parse(home_path, conf) == 0) found_files++;
+    } else {
+        fputs("Warning: environment variable 'HOME' not set\n", stderr);
+    }
+
+    // try /etc/funitrc
+    if (try_parse("/etc/funitrc", conf) == 0) found_files++;
+
+    set_defaults(conf);
+
+    if (found_files == 0) {
+        fprintf(stderr, "Warning: no funit config files found\n");
         return -1;
     }
 
-    int r = parse_config(&ps, conf);
-    close_parse_file(&ps);
-
-    if (r == 0) {
-        set_defaults(conf);
-    }
-
-    return r;
+    return 0;
 }
 
 void free_config(struct Config *conf)

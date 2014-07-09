@@ -18,6 +18,7 @@ static void test_no_funit(void)
     struct Config conf;
     int r = read_config(&conf);
     assert(r == -1);
+    free_config(&conf);
 }
 
 static const char full_config[] =
@@ -28,6 +29,7 @@ static const char full_config[] =
     "fortran_ext=.yummy\n"
     "template_ext = \".nice\"#peter pan\n"
     "\n"
+    "not_a_key = 2\n"
     "# more commenting!\n"
     ;
 
@@ -43,9 +45,21 @@ static void test_dot_funit(void)
     assert(strcmp(conf.tempdir, "/my/temp") == 0);
     assert(strcmp(conf.fortran_ext, ".yummy") == 0);
     assert(strcmp(conf.template_ext, ".nice") == 0);
+
+    free_config(&conf);
 }
 
 static const char empty_config[] = " # just a comment";
+
+static void assert_defaults(struct Config *conf)
+{
+    assert(strcmp(conf->build, "make {{EXE}}") == 0);
+    assert(conf->tempdir != NULL);
+    assert(strlen(conf->tempdir) > 0);
+    assert(fu_isdir(conf->tempdir));
+    assert(strcmp(conf->fortran_ext, ".F90") == 0);
+    assert(strcmp(conf->template_ext, ".fun") == 0);
+}
 
 static void test_defaults(void)
 {
@@ -54,13 +68,8 @@ static void test_defaults(void)
     struct Config conf;
     int r = read_config(&conf);
     assert(r == 0);
-
-    assert(strcmp(conf.build, "make {{EXE}}") == 0);
-    assert(conf.tempdir != NULL);
-    assert(strlen(conf.tempdir) > 0);
-    assert(fu_isdir(conf.tempdir));
-    assert(strcmp(conf.fortran_ext, ".F90") == 0);
-    assert(strcmp(conf.template_ext, ".fun") == 0);
+    assert_defaults(&conf);
+    free_config(&conf);
 }
 
 static const char bad_config[] =
@@ -78,10 +87,8 @@ static void test_bad_funit(void)
     struct Config conf;
     int r = read_config(&conf);
     assert(r == -1);
-    assert(conf.build == NULL);
-    assert(conf.tempdir == NULL);
-    assert(conf.fortran_ext == NULL);
-    assert(conf.template_ext == NULL);
+    assert_defaults(&conf);
+    free_config(&conf);
 }
 
 int main(int argc, char **argv)
