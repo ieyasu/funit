@@ -24,6 +24,8 @@ void *fu_realloc(void *ptr, size_t bytes);
 #define fu_alloca(bytes) fu_alloc(bytes)
 #define fu_freea(ptr) free(ptr)
 
+void fu_error3(const char *prefix, const char *s, size_t len,
+               const char *postfix);
 
 char *fu_strndup(char *str, size_t len);
 char *fu_strdup(char *str);

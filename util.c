@@ -39,6 +39,16 @@ void *fu_realloc(void *ptr, size_t bytes)
 }
 
 
+/* IO FUNCTIONS
+ */
+void fu_error3(const char *prefix, const char *s, size_t len,
+               const char *postfix)
+{
+    fputs(prefix, stderr);
+    fwrite(s, len, 1, stderr);
+    fputs(postfix, stderr);
+}
+
 /* GENERIC STRING FUNCTIONS
  */
 

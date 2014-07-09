@@ -55,6 +55,13 @@ void test_allocation(void)
     fu_freea(p);
 }
 
+static void test_io(void)
+{
+    // test fu_error3
+    char *s = "bar";
+    fu_error3("foo '", s, 3, "' baz\n");
+}
+
 static void test_string_ops(void)
 {
     // test fu_strndup
@@ -200,6 +207,7 @@ static void test_path_operations(void)
 int main(int argc, char **argv)
 {
     test_allocation();
+    test_io();
     test_string_ops();
     test_buffer_ops();
     test_path_operations();
