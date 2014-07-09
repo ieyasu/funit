@@ -72,6 +72,8 @@ typedef void end_finder_fun(struct ParseState *ps);
 
 void parse_fail(struct ParseState *ps, const char *col, const char *message);
 void parse_vfail(struct ParseState *ps, const char *col, const char *format, ...);
+void parse_fail3(struct ParseState *ps, char *prefix,
+                 char *s, size_t len, char *postfix);
 void syntax_error(struct ParseState *ps);
 char *next_line(struct ParseState *ps);
 char *skip_ws(struct ParseState *ps);

@@ -67,18 +67,6 @@ static int store_config_value(struct Config *conf, char *key,
     return 0;
 }
 
-static void parse_fail3(struct ParseState *ps, char *prefix,
-                        char *s, size_t len, char *postfix)
-{
-    struct Buffer msg;
-    init_buffer(&msg, 32);
-    buffer_cat(&msg, prefix);
-    buffer_ncat(&msg, s, len);
-    buffer_cat(&msg, postfix);
-    parse_fail(ps, ps->next_pos, msg.s);
-    free_buffer(&msg);
-}
-
 static int parse_config_setting(struct ParseState *ps, struct Config *conf)
 {
     // config key
