@@ -1,8 +1,6 @@
 /* util.c - general utility functions.
  */
-//#include "funit.h"
-#include "util.h"
-
+#include "funit.h"
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>

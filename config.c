@@ -1,7 +1,6 @@
 /* FUnit config file parser.
  */
 #include "funit.h"
-#include "util.h"
 #include <errno.h>
 #include <limits.h>
 #include <string.h>
