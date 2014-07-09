@@ -103,21 +103,52 @@ static void test_buffer_ops()
     assert(buf.size > 1);
     buf.s[buf.size - 1] =  'b'; // ensure writable up to end of new buffer size
 
-    // test buffer_append
-    buffer_append(&buf, "foo");
+    // test buffer_ncat
+    buf.i = 0;
+    buffer_ncat(&buf, "baz", 4);
+    assert(buf.s != NULL);
+    assert(buf.size > 3);
+    assert(buf.i == 3);
+    assert(strncmp(buf.s, "baz", 3) == 0);
+    assert(buf.s[buf.i] == '\0');
+
+    buf.i = 0;
+    buffer_ncat(&buf, "baz", 3);
+    assert(buf.s != NULL);
+    assert(buf.size > 3);
+    assert(buf.i == 3);
+    assert(strncmp(buf.s, "baz", 3) == 0);
+    assert(buf.s[buf.i] == '\0');
+
+    buf.i = 0;
+    buffer_ncat(&buf, "baz", 2);
+    assert(buf.s != NULL);
+    assert(buf.size > 2);
+    assert(buf.i == 2);
+    assert(strncmp(buf.s, "ba", 2) == 0);
+    assert(buf.s[buf.i] == '\0');
+
+    buf.i = 0;
+
+    // test buffer_cat
+    buffer_cat(&buf, "foo");
     assert(buf.s != NULL);
     assert(strncmp(buf.s, "foo", 3) == 0);
     assert(buf.i == 3);
     assert(buf.size >= 3);
+    assert(buf.s[buf.i] == '\0');
 
-    buffer_append(&buf, "bar");
+    buffer_cat(&buf, "bar");
     assert(buf.s != NULL);
     assert(strncmp(buf.s, "foobar", 6) == 0);
     assert(buf.i == 6);
     assert(buf.size >= 6);
+    assert(buf.s[buf.i] == '\0');
 
     // test free_buffer
     free_buffer(&buf);
+
+    // XXX test for '\0' termination everywhere
 }
 
 static void test_path_operations(void)

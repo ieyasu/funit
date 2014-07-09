@@ -10,10 +10,11 @@
 /* MEMORY ALLOCATION
  */
 
-static void check_alloc_error(void *p)
+static void check_alloc_error(void *p, size_t bytes)
 {
     if (!p) {
-        fputs("error: ran out of memory\n", stderr);
+        fprintf(stderr, "error: ran out of memory try to allocate %lu bytes\n",
+                (unsigned long)bytes);
         abort();
     }
 }
@@ -21,7 +22,7 @@ static void check_alloc_error(void *p)
 void *fu_alloc(size_t bytes)
 {
     void *p = malloc(bytes);
-    check_alloc_error(p);
+    check_alloc_error(p, bytes);
     return p;
 }
 
@@ -35,7 +36,7 @@ void *fu_alloc0(size_t bytes)
 void *fu_realloc(void *ptr, size_t bytes)
 {
     void *p = realloc(ptr, bytes);
-    check_alloc_error(p);
+    check_alloc_error(p, bytes);
     return p;
 }
 
@@ -45,7 +46,7 @@ void *fu_realloc(void *ptr, size_t bytes)
 
 char *fu_strndup(char *str, size_t len)
 {
-    char *copy = malloc(len + 1);
+    char *copy = fu_alloc(len + 1);
     strncpy(copy, str, len);
     copy[len] = '\0';
     return copy;
@@ -74,23 +75,30 @@ void grow_buffer(struct Buffer *buf)
     buf->s = fu_realloc(buf->s, buf->size);
 }
 
-/* Given the buffer base pointer buf, the current write position bufi and
- * the allocated buffer size bufsize, append app at the current write position,
- * first growing the buffer if needed.  bufi is incremented past app, and
- * bufsize will reflect the new buffer size if it grew.
- *
- * Returns a pointer to the buffer which could be different
+/* Given the Buffer, append app at the current write position, first growing
+ * the buffer if needed.
  */
-void buffer_append(struct Buffer *buf, const char *app)
+void buffer_ncat(struct Buffer *buf, const char *app, size_t applen)
 {
-    size_t applen = strlen(app);
-
-    if (buf->i + applen > buf->size) {
+    if (buf->i + applen + 1 > buf->size) {
         grow_buffer(buf);
     }
 
-    memcpy(buf->s+buf->i, app, applen);
-    buf->i += applen;
+    for (size_t j = 0; j < applen; j++) {
+        buf->s[buf->i] = app[j];
+        if (app[j] == '\0') return;
+        buf->i++;
+    }
+    buf->s[buf->i] = '\0';
+}
+
+/* Appends the given string to the buffer at the current write position,
+ * growing the buffer if necessary.
+ */
+void buffer_cat(struct Buffer *buf, const char *app)
+{
+    size_t applen = strlen(app);
+    buffer_ncat(buf, app, applen);
 }
 
 void free_buffer(struct Buffer *buf)

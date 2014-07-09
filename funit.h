@@ -5,6 +5,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+struct Config {
+    char *build;
+    char *tempdir;
+    char *fortran_ext;
+    char *template_ext;
+};
+
 
 struct ParseState {
     const char *path;
@@ -121,6 +128,9 @@ extern const char *test_set_file_name;
 
 #define NEW(type)  (type *)malloc(sizeof(type))
 #define NEW0(type) (type *)calloc(1, sizeof(type))
+// Config file
+int read_config(struct Config *conf);
+void free_config(struct Config *conf);
 
 // Parser interface
 struct TestFile *parse_test_file(const char *path);

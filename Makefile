@@ -33,7 +33,7 @@ test: funit test_code
 	cd test/code_gen; ./run.sh # functional test of code generation
 
 # unit test funit's code
-test_code: util.o #$(OBJS)
+test_code: config.o parse.o util.o #$(OBJS)
 	cd test/code && $(MAKE)
 
 

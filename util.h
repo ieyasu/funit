@@ -35,7 +35,8 @@ struct Buffer {
 
 void init_buffer(struct Buffer *buf, size_t initsize);
 void grow_buffer(struct Buffer *buf);
-void buffer_append(struct Buffer *buf, const char *app);
+void buffer_ncat(struct Buffer *buf, const char *app, size_t applen);
+void buffer_cat(struct Buffer *buf, const char *app);
 void free_buffer(struct Buffer *buf);
 
 

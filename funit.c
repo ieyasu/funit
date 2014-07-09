@@ -3,10 +3,6 @@
 #include <unistd.h>
 #include <string.h>
 
-// XXX make these configurable
-#define TPL_EXT ".fun" // template extension
-#define FTN_EXT ".F90" // extension for fortran source code (deps)
-
 static const char usage[] = 
 "Usage: funit [-E] [-o file] [test_file.fun...|testdir]\n"
 "             [-h]\n"
@@ -23,9 +19,10 @@ static const char usage[] =
  * "test_THING.fun" naming convention.
  * Returns 0 if no such file dependency was set. If 1 is returned, the caller
  * is responsible for removing the added TestDependency, as it is not
- * malloc()'d.
+ * fu_alloc()'d.
  */
-static int file_dependency(char *infile, struct TestSet *set)
+static int file_dependency(char *infile, struct TestSet *set,
+                           const struct Config *conf)
 {
     static struct TestDependency dep;
     static char buf[PATH_MAX], *test, *dot;
@@ -35,11 +32,11 @@ static int file_dependency(char *infile, struct TestSet *set)
     if (test && (!dot || dot > test + 5)) { // extract name after 'test_'
         strcpy(buf, test + 5);
         if (dot) {
-            if (!strcmp(dot, TPL_EXT)) { // .fun -> .F90
-                strcpy(dot, FTN_EXT);
+            if (!strcmp(dot, conf->template_ext)) { // .fun -> .F90
+                strcpy(dot, conf->fortran_ext);
             } // else assume correct extension already
-        } else { // append .F90
-            strcat(buf, FTN_EXT);
+        } else { // append fortran extension
+            strcat(buf, conf->fortran_ext);
         }
 
         // add this dependency to the dep list of each set
@@ -123,6 +120,7 @@ static int generate_code(char *infile, char *outfile)
 
 int main(int argc, char **argv)
 {
+    struct Config conf;
     int just_output_fortran = 0;
     char *outfile = NULL;
     int opt;
@@ -157,6 +155,11 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    if (read_config(&conf)) {
+        free_config(&conf);
+        return -1;
+    }
+
     while (optind < argc) {
         if (generate_code(argv[optind], outfile) == 0) {
             // XXX build the code with make or sth
@@ -164,5 +167,6 @@ int main(int argc, char **argv)
         optind++;
     }
 
+    free_config(&conf);
     return 0;
 }

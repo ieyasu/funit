@@ -149,12 +149,12 @@ char *next_thing(struct ParseState *ps, size_t *len, end_finder_fun end_fun)
 
     end_fun(ps);
 
-    if (ps->next_pos - ps->read_pos > 0) {
+    if (ps->next_pos > ps->read_pos) {
         if (len)
             *len = ps->next_pos - ps->read_pos;
         return ps->read_pos;
     }
-    return (char *)END_OF_LINE;
+    return END_OF_LINE;
 }
 
 /* Opens and mmap()s a file for parsing.  Returns a ParseState struct to keep
