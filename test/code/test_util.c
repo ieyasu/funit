@@ -139,6 +139,32 @@ static void test_path_operations(void)
 
     r = fu_isdir("thisdirdoesnotexist");
     assert(r == FALSE);
+
+    // test fu_pathcat
+    char path[14];
+
+    r = fu_pathcat(path, sizeof(path), "foo", "bar");
+    assert(r == 0);
+    assert(strcmp(path, "foo/bar") == 0); // XXX not portable to windows
+
+    r = fu_pathcat(path, sizeof(path), "foo/", "bar");
+    assert(r == 0);
+    assert(strcmp(path, "foo/bar") == 0);
+
+    r = fu_pathcat(path, sizeof(path), "foo/bar", "baz");
+    assert(r == 0);
+    assert(strcmp(path, "foo/bar/baz") == 0);
+
+    r = fu_pathcat(path, sizeof(path), "foo", "bar/baz");
+    assert(r == 0);
+    assert(strcmp(path, "foo/bar/baz") == 0);
+
+    r = fu_pathcat(path, sizeof(path), "foo/", "bar/baz");
+    assert(r == 0);
+    assert(strcmp(path, "foo/bar/baz") == 0);
+
+    r = fu_pathcat(path, sizeof(path), "too-long", "also-too-long");
+    assert(r == -1);
 }
 
 int main(int argc, char **argv)

@@ -41,5 +41,6 @@ void free_buffer(struct Buffer *buf);
 
 int fu_stat(const char *path, struct stat *bufp);
 int fu_isdir(const char *path);
+int fu_pathcat(char *buf, size_t bufsize, const char *path1, const char *path2);
 
 #endif // __FUNIT_UTIL_H__

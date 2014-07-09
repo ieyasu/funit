@@ -124,3 +124,30 @@ int fu_isdir(const char *restrict path)
 
     return FALSE;
 }
+
+static const char fu_pathsep =
+#ifdef _WIN32
+                            '\\';
+#else
+                            '/';
+#endif
+
+int fu_pathcat(char *buf, size_t bufsize, const char *path1, const char *path2)
+{
+    size_t len1 = strlen(path1), len2 = strlen(path2);
+    if (bufsize < len1 + len2 + 2) {
+        // XXX buf too small - set errno?
+        return -1;
+    }
+
+    memcpy(buf, path1, len1);
+
+    if (path1[len1 - 1] != fu_pathsep) {
+        buf[len1] = fu_pathsep;
+        len1++;
+    }
+
+    strcpy(buf+len1, path2);
+
+    return 0;
+}
