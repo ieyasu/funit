@@ -5,6 +5,8 @@ FFLAGS = -g -Wall
 LFLAGS =
 
 OBJS = funit.o parse_test_file.o generate_code.o
+TCD = test/code
+TEST_PROGS = test/parser/test_parser $(TCD)/test_util
 
 .SUFFIXES: .o .c
 
@@ -27,11 +29,19 @@ test/parser/test_parser: test/parser/test_parser.o parse_test_file.o
 funit_fortran_module.h: mod_funit.F90
 	ruby ./file2stringvar.rb module_code <mod_funit.F90 >funit_fortran_module.h
 
-clean:
-	rm -f *.o *.mod *~ funit test/parser/*.o test/parser/test_parser
+test: funit test_code
+	cd test/code_gen; ./run.sh # functional test of code generation
 
-test: funit
-	cd test/code_gen; ./run.sh
+# unit test funit's code
+test_code: util.o #$(OBJS)
+	cd test/code && $(MAKE)
+
+
+clean: testclean
+	rm -f *.o *.mod *~ funit
+
+testclean:
+	rm -f $(TEST_PROGS) test/*/*.o
 
 # deps
 generate_code.o: generate_code.c funit_fortran_module.h
