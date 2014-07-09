@@ -1,14 +1,14 @@
-CC = gcc
+CC = cc
 FC = gfortran
-CFLAGS = -g -Wall -std=c99 -D_POSIX_C_SOURCE=2
+CFLAGS = -g -Wall -std=c99 #-D_POSIX_C_SOURCE=2 -D_BSD_SOURCE
 FFLAGS = -g -Wall
 LFLAGS =
 
-OBJS = funit.o parse_test_file.o generate_code.o
+OBJS = funit.o build_and_run.o config.o parse.o parse_test_file.o generate_code.o util.o
 TCD = test/code
 TEST_PROGS = test/parser/test_parser $(TCD)/test_util
 
-.SUFFIXES: .o .c
+.SUFFIXES: .o .c .F90 .f90
 
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c -o $*.o
@@ -23,7 +23,7 @@ funit: $(OBJS)
 
 test: test/parser/test_parser
 
-test/parser/test_parser: test/parser/test_parser.o parse_test_file.o
+test/parser/test_parser: test/parser/test_parser.o parse_test_file.o parse.o util.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LFLAGS)
 
 funit_fortran_module.h: mod_funit.F90
@@ -33,8 +33,10 @@ test: funit test_code
 	cd test/code_gen; ./run.sh # functional test of code generation
 
 # unit test funit's code
-test_code: config.o parse.o util.o #$(OBJS)
+test_code: $(OBJS)
 	cd test/code && $(MAKE)
+	@echo
+	@echo "many warnings should have appeared above; this is normal"
 
 
 clean: testclean

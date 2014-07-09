@@ -158,6 +158,7 @@ char *skip_next_ws(struct ParseState *ps)
 char *next_thing(struct ParseState *ps, size_t *len, end_finder_fun end_fun)
 {
     skip_next_ws(ps);
+    ps->read_pos = ps->next_pos;
 
     end_fun(ps);
 

@@ -24,13 +24,11 @@ void *fu_realloc(void *ptr, size_t bytes);
 #define fu_alloca(bytes) fu_alloc(bytes)
 #define fu_freea(ptr) free(ptr)
 
-void fu_error3(const char *prefix, const char *s, size_t len,
-               const char *postfix);
-
 char *fu_strndup(char *str, size_t len);
 char *fu_strdup(char *str);
 
 
+// XXX rename to StrBuf
 struct Buffer {
     char *s;     // the malloc()'d buffer space
     size_t size; // size of the buffer
@@ -47,6 +45,10 @@ void free_buffer(struct Buffer *buf);
 int fu_stat(const char *path, struct stat *bufp);
 int fu_isdir(const char *path);
 int fu_pathcat(char *buf, size_t bufsize, const char *path1, const char *path2);
+
+void fu_error3(const char *prefix, const char *s, size_t len,
+               const char *postfix);
+int fu_system(const char *command);
 
 
 struct Config {
@@ -174,5 +176,10 @@ void close_testfile(struct TestFile *tf);
 
 // Code generator
 int generate_code_file(struct TestSet *file, FILE *fout);
+
+// build and run
+int build_test(struct TestFile *tf, const char *outpath, const char *exename,
+               struct Config *conf);
+int run_test(struct TestFile *tf, const char *outpath, struct Config *conf);
 
 #endif // FUNIT_H

@@ -39,16 +39,6 @@ void *fu_realloc(void *ptr, size_t bytes)
 }
 
 
-/* IO FUNCTIONS
- */
-void fu_error3(const char *prefix, const char *s, size_t len,
-               const char *postfix)
-{
-    fputs(prefix, stderr);
-    fwrite(s, len, 1, stderr);
-    fputs(postfix, stderr);
-}
-
 /* GENERIC STRING FUNCTIONS
  */
 
@@ -73,6 +63,7 @@ char *fu_strdup(char *str)
 void init_buffer(struct Buffer *buf, size_t initsize)
 {
     buf->s = fu_alloc(initsize);
+    buf->s[0] = '\0';
     buf->size = initsize;
     buf->i = 0;
 }
@@ -166,4 +157,27 @@ int fu_pathcat(char *buf, size_t bufsize, const char *path1, const char *path2)
     strcpy(buf+len1, path2);
 
     return 0;
+}
+
+
+/* OTHER FUNCTIONS
+ */
+void fu_error3(const char *prefix, const char *s, size_t len,
+               const char *postfix)
+{
+    fputs(prefix, stderr);
+    fwrite(s, len, 1, stderr);
+    fputs(postfix, stderr);
+}
+
+int fu_system(const char *command)
+{
+    int ret = system(command);
+    if (ret == -1) {
+        fprintf(stderr, "error: system(): %s\n", strerror(errno));
+    } else if (ret == 127) {
+        fputs("error: system(): failed to execute shell\n", stderr);
+        ret = -1;
+    }
+    return ret;
 }

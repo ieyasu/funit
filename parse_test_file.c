@@ -128,9 +128,9 @@ static void name_end_finder(struct ParseState *ps)
         case '\n':
             return;
         default:
-            ps->next_pos++;
             break;
         }
+        ps->next_pos++;
     }
 }
 
@@ -834,7 +834,7 @@ struct TestFile *parse_test_file(const char *path)
     struct TestFile *tf = NEW0(struct TestFile);
     struct ParseState *ps = &tf->ps;
 
-    if (!open_file_for_parsing(path, ps)) {
+    if (open_file_for_parsing(path, ps)) {
         free(tf);
         return NULL;
     }

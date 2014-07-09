@@ -8,7 +8,7 @@ LFLAGS =
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
-all: test_util test_config
+all: test_util test_config test_build_and_run
 
 test_util: test_util.o ../../util.o
 	$(CC) -o $@ $^ $(LFLAGS) && ./$@
@@ -17,3 +17,7 @@ test_util: test_util.o ../../util.o
 test_config: test_config.o ../../config.o ../../parse.o ../../util.o
 	$(CC) -o $@ $^ $(LFLAGS) && ./$@
 	rm $@
+
+test_build_and_run: test_build_and_run.o ../../build_and_run.c ../../util.o
+	$(CC) -o $@ test_build_and_run.o ../../util.o $(LFLAGS) && ./$@
+	rm $@ test_build_and_run.o

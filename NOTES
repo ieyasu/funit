@@ -20,9 +20,69 @@ Components:
  - auto-runner(?)
 
 
+Test File Parser
+----------------
+
+While the config file parsing code shows that the generic parse framework can be made to work, the test file parser is a mess of pointer manipulation magic.  I can do better.  The first thing I can think of is to split it up into a scanner generating proper tokens which are then parsed.  My hand-written scanners tend to be a mess of magic, but at least the magic would be contained.
+
+
+Code Generator
+--------------
+
+This is a pile of code that, while fairly straightforward, probably ought to be generated from a template of some kind.
+
+
 Test Library & Running
 ----------------------
 
 Progress needs to be reported in real time. Each success or failure should be reported as soon as the test routine exits or an assertion fails.  The failures need to be counted to be reported at the end, which reduces the fancy memory handling needed (good).  Time should be kept track of as well.
 
-On test program exit, it should return the number of tests that failed.  This way the test runner (fu) can keep track of the total failures when running multiple suites.  Then fu keeps track of total run time and overall failure status.
+On test program exit, it should return the number of tests that failed.  This way the test runner (fu) can keep track of the total failures when running multiple sets.  Then fu keeps track of total run time and overall failure status.
+
+
+Building
+--------
+
+Problem:  Need to specify how to build Fortran code so that it can be run.  Needs to be flexible and simple.  Basic task is to convert a .fun file to Fortran code, then compile and link it with one or more source files to be tested.  Fortran code can be 77, 90, etc.
+
+It would be nice to integrate with an existing Makefile where applicable, but not good to require it (other build systems could be in use).  Could pull vars (e.g. FCFLAGS) from Makefile... Probably just want to do a make <test-name> instead of handling .F90 -> .o -- why use make if it's going to do that?  Could also auto-generate make recipes to build tests by inspecting .fun files for deps and such.  Would necessarily use GNU Make-like default rules.  Unless this should be configurable somehow...?
+
+Probably can cover most bases by taking a single(?) line command to compile and link the test, with funit vars and vars from environment and Makefile, if present.
+
+
+GNU make:
+
+'.f'
+    $(FC) $(FFLAGS) -c.
+'.F'
+    $(FC) $(FFLAGS) $(CPPFLAGS) -c.
+
+FC
+    Program for compiling or preprocessing Fortran and Ratfor programs; default f77.
+
+
+Options:
+- .f: ...; .F: ...; .F90: ...
+- FC = ...; F90 = ...; FFLAGS = ...; LDFLAGS = ...
+
+build = make | internal | ???
+
+# compile .F90 source (assumes .F90 embedded in .fun file)
+.F90: gfortran -o {{EXE}} {{DEPS}} -L${env_var}... -l...
+
+# compile F77 with make - TARGET is basename of test
+.f: make {{TARGET}}
+
+# use make to build objects - but this looks redundant
+.F90.o: make {{TARGET}}
+test: make {{TARGET}}
+
+---
+
+build = gfortran -o {{EXE}} {{DEPS}} -L${env_var}... -l...
+ - or -
+build = make {{EXE}}
+
+# per-extension build rules
+build.F90.o: ...
+build.f.obj: ...
