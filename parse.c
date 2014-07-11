@@ -220,19 +220,17 @@ void close_parse_file(struct ParseState *ps)
     assert(ps != NULL);
 
     if (ps->file_buf) {
-        if (!munmap(ps->file_buf, ps->bufsize)) {
-            ps->file_buf = NULL;
-        } else {
+        if (munmap(ps->file_buf, ps->bufsize)) {
             fprintf(stderr, "Unmapping file %s: %s\n", ps->path,
                     strerror(errno));
             abort();
         }
+        ps->file_buf = NULL;
     }
 
-    if (ps->fd && !close(ps->fd)) {
-        ps->fd = 0;
-    } else {
+    if (ps->fd && close(ps->fd)) {
         fprintf(stderr, "Closing file %s: %s\n", ps->path, strerror(errno));
         abort();
     }
+    ps->fd = 0;
 }

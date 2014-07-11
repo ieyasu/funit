@@ -1,2 +1,2 @@
-build = "gfortran -c code.f90; gfortran -o {{EXE}} {{TEST}} {{DEPS}}"
+build = "gfortran -c *.f90; gfortran -o {{EXE}} {{TEST}} {{DEPS}}"
 tempdir = "/tmp"

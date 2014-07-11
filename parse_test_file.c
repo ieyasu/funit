@@ -94,8 +94,6 @@ void close_testfile(struct TestFile *tf)
         free_sets(tf->sets);
 
     close_parse_file(&tf->ps);
-
-    free(tf);
 }
 
 static void token_end_finder(struct ParseState *ps)
@@ -555,7 +553,7 @@ static struct Code *parse_fortran(struct ParseState *ps, int *need_array_it)
     return NULL;
 }
 
-static int expect_eol(struct ParseState *ps)
+static int expect_eol2(struct ParseState *ps, int need_nl)
 {
     char *tok = next_token(ps, NULL);
     assert(tok != NULL);
@@ -563,11 +561,16 @@ static int expect_eol(struct ParseState *ps)
         syntax_error(ps);
         return -1;
     }
-    if (!next_line(ps)) {
+    if (!next_line(ps) && need_nl) {
         parse_fail(ps, ps->read_pos, "expected a newline");
         return -1;
     }
     return 0;
+}
+
+static int expect_eol(struct ParseState *ps)
+{
+    return expect_eol2(ps, TRUE);
 }
 
 static int
@@ -626,7 +629,9 @@ static int parse_end_sequence(struct ParseState *ps, const char *kind,
             return -1;
         }
     }
-    return expect_eol(ps);
+
+    int need_nl = strcmp(kind, "set") != 0;
+    return expect_eol2(ps, need_nl);
 }
 
 static struct TestDependency *parse_dependency(struct ParseState *ps)

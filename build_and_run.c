@@ -161,8 +161,8 @@ static char *expand_build_vars(const char *build, const char *outpath,
     return s;
 }
 
-int build_test(struct TestFile *tf, const char *outpath, const char *exepath,
-                 struct Config *conf)
+int build_test(struct TestFile *tf, struct Config *conf,
+               const char *outpath, const char *exepath)
 {
     char *build_command = expand_build_vars(conf->build, outpath, exepath, tf);
 
@@ -174,12 +174,9 @@ int build_test(struct TestFile *tf, const char *outpath, const char *exepath,
     return ret;
 }
 
-int run_test(struct TestFile *tf, const char *outpath, struct Config *conf)
+int run_test(struct TestFile *tf, struct Config *conf, const char *exe_path)
 {
-    char buf[PATH_MAX + 1];
-    fu_pathcat(buf, sizeof(buf), "./", outpath);
-
-    int ret = fu_system(buf);
+    int ret = fu_system(exe_path);
     if (ret > 0) {
         fprintf(stderr, "error: run command terminated with exit status %i\n",
                 ret);

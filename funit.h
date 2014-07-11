@@ -178,8 +178,8 @@ void close_testfile(struct TestFile *tf);
 int generate_code_file(struct TestSet *file, FILE *fout);
 
 // build and run
-int build_test(struct TestFile *tf, const char *outpath, const char *exename,
-               struct Config *conf);
-int run_test(struct TestFile *tf, const char *outpath, struct Config *conf);
+int build_test(struct TestFile *tf, struct Config *conf,
+               const char *outpath, const char *exename);
+int run_test(struct TestFile *tf, struct Config *conf, const char *exe_path);
 
 #endif // FUNIT_H

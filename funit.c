@@ -18,45 +18,32 @@ static const char usage[] =
 
 /* Given the "test_THING.fun" test file, compute the name of the output file
  * to write the Fortran code to.
- * bufp should be at least (PATH_MAX + 1) in length.
+ * buf must be at least (PATH_MAX + 1) in length.
  */
-static void make_fortran_name(char *infile, char *buf, struct Config *conf)
+static void make_fortran_path(char *infile, char *buf, struct Config *conf)
 {
-    if (strlen(infile) > PATH_MAX - strlen(conf->fortran_ext) - 7) {
-        fprintf(stderr, "error: the input file name '%s' is too long\n",
-                infile);
+    if (fu_pathcat(buf, PATH_MAX, conf->tempdir, infile))
         abort();
-    }
 
-    char *dot = strrchr(infile, '.');
-    if (dot && !strcmp(dot, conf->template_ext)) {
-        strncpy(buf, infile, dot - infile);
-        strcpy(buf + (dot - infile), conf->fortran_ext);
-    } else { // unrecognized or missing extension, just append extension
-        strcpy(buf, infile);
-        strcat(buf, conf->fortran_ext);
-    }
-
-    // XXX skip into bufp so don't have to scan as far for '\0'
     strcat(buf, ".XXXXXX");
-    if (mkstemp(buf)) {
-        // XXX print error from errno
+
+    if (mkstemp(buf) == -1) {
+        fprintf(stderr, "mkstemp() for fortran name: %s\n", strerror(errno));
         abort();
     }
+
+    strcat(buf, ".F90");
 }
 
-static char *make_exe_name(struct Config *conf)
+static void make_exe_path(struct Config *conf, char *buf)
 {
     size_t templen = strlen(conf->tempdir);
-    size_t exepathlen = templen + 13 + 1;
-    char *exepath = fu_alloc(exepathlen);
-    fu_pathcat(exepath, exepathlen, conf->tempdir, "funit-XXXXXX");
-    if (mkstemp(exepath) == -1) {
-        fprintf(stderr, "error in mkstemp() for exe name: %s\n",
-                strerror(errno));
+    size_t pathlen = templen + 13 + 1;
+    fu_pathcat(buf, pathlen, conf->tempdir, "funit-XXXXXX");
+    if (mkstemp(buf) == -1) {
+        fprintf(stderr, "mkstemp() for exe name: %s\n", strerror(errno));
         abort();
     }
-    return exepath;
 }
 
 static struct TestFile *
@@ -137,21 +124,26 @@ int main(int argc, char **argv)
         char buf[PATH_MAX + 1];
         char *fortran_out = outfile;
         if (!fortran_out) {
-            make_fortran_name(infile, buf, &conf);
+            make_fortran_path(infile, buf, &conf);
             fortran_out = buf;
         }
 
         struct TestFile *tf = generate_code(infile, fortran_out, &conf);
         if (tf) {
             if (!just_output_fortran) {
-                char *exename = make_exe_name(&conf);
-                build_test(tf, fortran_out, exename, &conf);
-                //run_test(tf, fortran_out, &conf);
+                char exe_path[PATH_MAX + 1];
+                make_exe_path(&conf, exe_path);
+
+                if (build_test(tf, &conf, fortran_out, exe_path) == 0) {
+                    if (run_test(tf, &conf, exe_path) == 0) {
+                        unlink(exe_path);
+                    }
+                    unlink(fortran_out);
+                }
             }
             close_testfile(tf);
         } else {
-            fprintf(stderr, "error generating code for %s\n", infile);
-            // XXX exit with error?
+            return -1; // error generating code - exit with error
         }
         optind++;
     }
