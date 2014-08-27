@@ -3,10 +3,6 @@
 #include <unistd.h>
 #include <string.h>
 
-// XXX make these configurable
-#define TPL_EXT ".fun" // template extension
-#define FTN_EXT ".F90" // extension for fortran source code (deps)
-
 static const char usage[] = 
 "Usage: funit [-E] [-o file] [test_file.fun...|testdir]\n"
 "             [-h]\n"
@@ -25,7 +21,8 @@ static const char usage[] =
  * is responsible for removing the added TestDependency, as it is not
  * malloc()'d.
  */
-static int file_dependency(char *infile, struct TestSet *set)
+static int file_dependency(char *infile, struct TestSet *set,
+                           const struct Config *conf)
 {
     static struct TestDependency dep;
     static char buf[PATH_MAX], *test, *dot;
@@ -35,11 +32,11 @@ static int file_dependency(char *infile, struct TestSet *set)
     if (test && (!dot || dot > test + 5)) { // extract name after 'test_'
         strcpy(buf, test + 5);
         if (dot) {
-            if (!strcmp(dot, TPL_EXT)) { // .fun -> .F90
-                strcpy(dot, FTN_EXT);
+            if (!strcmp(dot, conf->template_ext)) { // .fun -> .F90
+                strcpy(dot, conf->fortran_ext);
             } // else assume correct extension already
-        } else { // append .F90
-            strcat(buf, FTN_EXT);
+        } else { // append fortran extension
+            strcat(buf, conf->fortran_ext);
         }
 
         // add this dependency to the dep list of each set
@@ -56,57 +53,63 @@ static int file_dependency(char *infile, struct TestSet *set)
 /* Given the "test_THING.fun" input file, compute the name of the output file
  * to write the Fortran code to.
  */
-static char *make_fortran_name(char *infile)
+static char *make_fortran_name(char *infile, const struct Config *conf)
 {
     static char buf[PATH_MAX + 1], *dot;
 
-    if (strlen(infile) > PATH_MAX - 4) {
-        fprintf(stderr, "The input file name '%s' is too long\n", infile);
+    if (strlen(infile) > PATH_MAX - strlen(conf->fortran_ext)) {
+        fprintf(stderr, "FUnit: the input file name '%s' is too long\n",
+                infile);
         abort();
     }
 
     dot = strrchr(infile, '.');
-    if (dot && !strcmp(dot, TPL_EXT)) { // .fun -> .F90
+    if (dot && !strcmp(dot, conf->template_ext)) {
         strncpy(buf, infile, dot - infile);
-        strcpy(buf + (dot - infile), FTN_EXT);
-    } else { // unrecognized or missing extension, just append .F90
+        strcpy(buf + (dot - infile), conf->fortran_ext);
+    } else { // unrecognized or missing extension, just append extension
         strcpy(buf, infile);
-        strcat(buf, FTN_EXT);
+        strcat(buf, conf->fortran_ext);
     }
     return buf;
 }
 
-static int generate_code(char *infile, char *outfile)
+static struct TestFile *
+generate_code(char *infile, char **outfile, const struct Config *conf)
 {
     struct TestFile *tf;
     FILE *fout;
-    int code = 0, dep_added;
+    int dep_added;
 
     tf = parse_test_file(infile);
     if (!tf)
-        return -1;
+        return NULL;
     if (!tf->sets) {
         close_testfile(tf);
-        return -1;
+        return NULL;
     }
 
-    dep_added = file_dependency(infile, tf->sets);
+    dep_added = file_dependency(infile, tf->sets, conf);
 
-    if (!outfile)
-        outfile = make_fortran_name(infile);
+    // XXX if we're generating code just to run a test, use a mkstemp
+    if (!*outfile)
+        *outfile = make_fortran_name(infile, conf);
 
-    fout = fopen(outfile, "w");
+    fout = fopen(*outfile, "w");
     if (!fout) {
-        fprintf(stderr, "could not open %s for writing\n", outfile);
-        return -1;
+        fprintf(stderr, "FUnit: could not open %s for writing\n", *outfile);
+        return NULL;
     }
 
-    if (generate_code_file(tf->sets, fout))
-        code = -1;
+    if (generate_code_file(tf->sets, fout)) {
+        close_testfile(tf);
+        return NULL;
+    }
 
     if (fclose(fout)) {
-        fprintf(stderr, "error closing %s\n", outfile);
-        code = -1;
+        fprintf(stderr, "FUnit: error closing %s\n", *outfile);
+        close_testfile(tf);
+        return NULL;
     }
 
     if (dep_added) { // XXX wtf is this doing?
@@ -116,13 +119,13 @@ static int generate_code(char *infile, char *outfile)
             set = set->next;
         }
     }
-    close_testfile(tf);
 
-    return code;
+    return tf;
 }
 
 int main(int argc, char **argv)
 {
+    struct Config conf;
     int just_output_fortran = 0;
     char *outfile = NULL;
     int opt;
@@ -157,6 +160,11 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    if (read_config(&conf)) {
+        free_config(&conf);
+        return -1;
+    }
+
     while (optind < argc) {
         if (generate_code(argv[optind], outfile) == 0) {
             // XXX build the code with make or sth
@@ -164,5 +172,6 @@ int main(int argc, char **argv)
         optind++;
     }
 
+    free_config(&conf);
     return 0;
 }

@@ -80,6 +80,48 @@ Assertions
 The array assertions should be given array variable names rather than complex expressions because their arguments are evaluated several times.
 
 
+Config File
+===========
+
+FUnit looks for config files in three locations:
+
+1. +.funit+ in the current directory,
+2. +.funit+ in the user's home directory (via the +HOME+ environment variable),
+3. and finally +/etc/funitrc+.
+
+The first time a config value is seen, that is its value.  This way, the current directory's +.funit+ will override values in +$HOME/.funit+ which in turn will overrid values in /etc/funitrc.
+
+The syntax is like many Unix-style rc files: comments starts with '#' and continue to the end of the line; configuration settings are made with unquoted values like
+
+    key = value
+
+or quoted values like
+
+    key = "value"
+
+or
+
+    key = 'value'
+
+Unquoted values cannot contain spaces, tabs or the comment character ('#').  Quoted values may contain spaces, tabs or '#', but they have no way of escaping the character that opened the quotation (a quotation mark or apostrophe).  They may contain the other quotation character however.
+
+The following configuration keys are recognized:
+
+build = "BUILD COMMAND"
+
+  default: TDB
+  example:
+
+fortran_ext = .EXT
+
+  default: .f90
+  example:
+
+template_ext = .EXT
+
+  default: .fun
+  example:
+
 Running Tests
 =============
 

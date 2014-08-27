@@ -1,4 +1,5 @@
 *.o
 *.mod
 funit
+.funit
 test/parser/test_parser

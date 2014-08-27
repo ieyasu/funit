@@ -1,0 +1,15 @@
+# FUnit config file
+# comments start with a pound symbol ('#') like this one
+# comments can also start anywhere in a line
+
+# One-line command to build a test along with its deps.
+# FUnit special vars are surrounded with double curly braces ('{{...}}')
+# environment variables will be expanded when written with Bourne-type
+# syntax, e.g. ${HOME}
+#
+# must be given
+build = gfortran -o {{EXE}} {{DEPS}} -lnetcdf
+
+# Set the file extension to use for Fortran code generated from .fun files
+# before they are linked into a test program. Default is '.F90'.
+#fortran_ext = .F90 #.f95
