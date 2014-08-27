@@ -8,7 +8,6 @@
 // XXX no more globals!
 static FILE *fout;
 const char *test_set_file_name;
-static double tolerance = -1.0;
 
 static int check_assert_args2(const char *macro_name, struct Code *macro,
                               struct Code *args, int min_args, int max_args)
@@ -290,7 +289,7 @@ static int generate_assert_not_equal(struct Code *macro)
  *       return
  *     end if
  */
-static int generate_assert_equal_with(struct Code *macro)
+static int generate_assert_equal_with(struct Code *macro, double tolerance)
 {
     struct Code *a = macro->u.m.args, *b;
     double this_tolerance;
@@ -302,7 +301,7 @@ static int generate_assert_equal_with(struct Code *macro)
     }
     b = a->next;
     if (num_args == 2) {
-        if (tolerance <= 0.0) {
+        if (tolerance < 0.0) {
             fprintf(stderr, "near %s:%li: missing a tolerance argument or "
                     "a set-level default tolerance\n",
                     test_set_file_name, macro->lineno);
@@ -311,14 +310,17 @@ static int generate_assert_equal_with(struct Code *macro)
         this_tolerance = tolerance;
     } else if (num_args == 3) {
         this_tolerance = strtod(b->next->u.c.str, NULL);
-        if (this_tolerance <= 0.0) {
+        if (this_tolerance < 0.0) {
             fprintf(stderr, "near %s:%li: in assert_array_equal(): parsed "
-                    "a tolerance <= 0.0; you need to fix that\n",
+                    "a tolerance < 0.0; you need to fix that\n",
                     test_set_file_name, macro->lineno);
             return -1;
         }
+    } else {
+        abort();
     }
 
+    // XXX generate different code if tolerance = 0
     fprintf(fout, "! assert_equal_with(%s)\n", (num_args == 3) ? "tol" : "");
     fputs("    if (abs((", fout);
     PRINT_CODE(a);
@@ -432,7 +434,8 @@ static int generate_assert_array_equal(struct Code *macro)
  *       end if
  *     end do
  */
-static int generate_assert_array_equal_with(struct Code *macro)
+static int generate_assert_array_equal_with(struct Code *macro,
+                                            double tolerance)
 {
     struct Code *a = macro->u.m.args, *b;
     float this_tolerance;
@@ -444,7 +447,7 @@ static int generate_assert_array_equal_with(struct Code *macro)
     }
     b = a->next;
     if (num_args == 2) {
-        if (tolerance <= 0.0) {
+        if (tolerance < 0.0) {
             fprintf(stderr, "near %s:%li: in assert_array_equal(): missing "
                     "a tolerance argument or a set-level default tolerance\n",
                     test_set_file_name, macro->lineno);
@@ -453,12 +456,14 @@ static int generate_assert_array_equal_with(struct Code *macro)
         this_tolerance = tolerance;
     } else if (num_args == 3) {
         this_tolerance = strtod(b->next->u.c.str, NULL);
-        if (this_tolerance <= 0.0) {
+        if (this_tolerance < 0.0) {
             fprintf(stderr, "near %s:%li: in assert_array_equal(): parsed "
-                    "a tolerance <= 0.0; you need to fix that\n",
+                    "a tolerance < 0.0; you need to fix that\n",
                     test_set_file_name, macro->lineno);
             return -1;
         }
+    } else {
+        abort();
     }
 
     fprintf(fout, "! assert_array_equal_with(%s)\n",
@@ -466,6 +471,8 @@ static int generate_assert_array_equal_with(struct Code *macro)
 
     // length check
     print_array_size_check(a, b);
+
+    // XXX generate different code if tolerance = 0
 
     // do loop
     fputs("    do funit_i_ = 1,size(", fout);
@@ -517,7 +524,7 @@ static int generate_flunk(struct Code *macro)
     return 0;
 }
 
-static int generate_assert(struct Code *macro)
+static int generate_assert(struct Code *macro, double tolerance)
 {
     assert(macro->type == MACRO_CODE);
 
@@ -531,11 +538,11 @@ static int generate_assert(struct Code *macro)
     case ASSERT_NOT_EQUAL:
         return generate_assert_not_equal(macro);
     case ASSERT_EQUAL_WITH:
-        return generate_assert_equal_with(macro);
+        return generate_assert_equal_with(macro, tolerance);
     case ASSERT_ARRAY_EQUAL:
         return generate_assert_array_equal(macro);
     case ASSERT_ARRAY_EQUAL_WITH:
-        return generate_assert_array_equal_with(macro);
+        return generate_assert_array_equal_with(macro, tolerance);
     case FLUNK:
         return generate_flunk(macro);
     default:
@@ -545,14 +552,14 @@ static int generate_assert(struct Code *macro)
     return -1;
 }
 
-static int generate_code(struct Code *code)
+static int generate_code(struct Code *code, double tolerance)
 {
     switch (code->type) {
     case FORTRAN_CODE:
         PRINT_CODE(code);
         break;
     case MACRO_CODE:
-        if (generate_assert(code))
+        if (generate_assert(code, tolerance))
             return -1;
         break;
     default: // arg code
@@ -562,14 +569,14 @@ static int generate_code(struct Code *code)
         break;
     }
     if (code->next)
-        return generate_code(code->next);
+        return generate_code(code->next, tolerance);
     return 0;
 }
 
-static int generate_test(struct TestCase *test, int *test_i)
+static int generate_test(struct TestCase *test, int *test_i, double tolerance)
 {
     if (test->next)
-        generate_test(test->next, test_i);
+        generate_test(test->next, test_i, tolerance);
 
     *test_i += 1;
     fprintf(fout, "  subroutine funit_test%i(funit_passed_, funit_message_)\n",
@@ -582,7 +589,7 @@ static int generate_test(struct TestCase *test, int *test_i)
     fputs("\n", fout);
 
     if (test->code) {
-        if (generate_code(test->code))
+        if (generate_code(test->code, tolerance))
             return -1;
     }
 
@@ -592,10 +599,10 @@ static int generate_test(struct TestCase *test, int *test_i)
     return 0;
 }
 
-static void generate_support(struct Code *code, const char *type)
+static void generate_support(struct TestSet *set, const char *type)
 {
     fprintf(fout, "  subroutine funit_%s\n", type);
-    generate_code(code);
+    generate_code(set->setup, set->tolerance);
     fprintf(fout, "  end subroutine funit_%s\n\n", type);
 }
 
@@ -655,8 +662,6 @@ static int generate_set(struct TestSet *set, int *set_i)
     if (set->next)
         generate_set(set->next, set_i);
 
-    tolerance = (set->tolerance > 0.0) ? set->tolerance : DEFAULT_TOLERANCE;
-
     (*set_i)++;
     fprintf(fout, "subroutine funit_set%i\n", *set_i);
     fputs("  use funit\n", fout);
@@ -670,8 +675,8 @@ static int generate_set(struct TestSet *set, int *set_i)
     fputs("  logical :: funit_passed_\n\n", fout);
     
     if (set->code)
-        generate_code(set->code);
-    
+        generate_code(set->code, set->tolerance);
+
     if (set->tests) {
         size_t max_name = max_test_name_width(set->tests);
         test_i = 0;
@@ -681,12 +686,12 @@ static int generate_set(struct TestSet *set, int *set_i)
     fputs("contains\n\n", fout);
     
     if (set->setup)
-        generate_support(set->setup, "setup");
+        generate_support(set, "setup");
     if (set->teardown)
-        generate_support(set->setup, "teardown");
+        generate_support(set, "teardown");
     if (set->tests) {
         test_i = 0;
-        if (generate_test(set->tests, &test_i))
+        if (generate_test(set->tests, &test_i, set->tolerance))
             return -1;
     }
 
