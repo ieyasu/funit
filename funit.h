@@ -5,6 +5,39 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+struct Config {
+    char *build;
+    char *fortran_ext;
+    char *template_ext;
+};
+
+
+struct ParseState {
+    const char *path;
+    int fd;
+    size_t bufsize;
+
+    char *file_buf, *file_end;
+    char *line_pos, *next_line_pos;
+    char *read_pos, *next_pos;
+    long lineno;
+};
+
+typedef void end_finder_fun(struct ParseState *ps);
+
+#define END_OF_LINE ((char *)0x1)
+
+void parse_fail(struct ParseState *ps, const char *col, const char *message);
+void parse_vfail(struct ParseState *ps, const char *col, const char *format, ...);
+void syntax_error(struct ParseState *ps);
+char *next_line(struct ParseState *ps);
+char *skip_ws(struct ParseState *ps);
+char *skip_next_ws(struct ParseState *ps);
+char *next_thing(struct ParseState *ps, size_t *len, end_finder_fun end_fun);
+int open_file_for_parsing(const char *path, struct ParseState *ps);
+void close_parse_file(struct ParseState *ps);
+
+
 enum CodeType {
     FORTRAN_CODE,
     MACRO_CODE,
@@ -72,21 +105,10 @@ struct TestSet {
     double tolerance;
 };
 
-// XXX remove after moving parse state back into private struct
-#include <sys/types.h>
-#include <sys/stat.h>
-
 struct TestFile {
     struct TestSet *sets;
     // private
-    struct stat statbuf;
-    const char *path;
-    int fd;
-    // parse state
-    char *file_buf, *file_end;
-    char *line_pos, *next_line_pos;
-    char *read_pos, *next_pos;
-    long lineno;
+    struct ParseState ps;
 };
 
 #define DEFAULT_TOLERANCE (0.00001)
