@@ -621,7 +621,7 @@ static void generate_test_call(struct TestSet *set,
     fprintf(fout, "  call funit_test%i(funit_passed_, funit_message_)\n",
             *test_i);
     fputs("  call pass_fail(funit_passed_, funit_message_, \"", fout);
-    fwrite(test->name, test->name_len, 1, fout);
+    fwrite(test->name, test->namelen, 1, fout);
     fprintf(fout, "\", %u)\n", (unsigned int)max_name);
     if (set->teardown)
         fputs("  call funit_teardown\n\n", fout);
@@ -642,8 +642,8 @@ static void print_use(struct TestModule *mod)
 
 static void max_name_width(struct TestCase *test, size_t *max)
 {
-    if (test->name_len > *max)
-        *max = test->name_len;
+    if (test->namelen > *max)
+        *max = test->namelen;
     if (test->next)
         max_name_width(test->next, max);
 }
@@ -707,7 +707,7 @@ static void generate_set_call(struct TestSet *set, int *set_i)
 
     (*set_i)++;
     fputs("\n  call start_set(\"", fout);
-    fwrite(set->name, set->name_len, 1, fout);
+    fwrite(set->name, set->namelen, 1, fout);
     fputs("\")\n", fout);
     fprintf(fout, "  call funit_set%i\n", *set_i);
 }

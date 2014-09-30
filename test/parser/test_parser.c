@@ -90,7 +90,7 @@ void print_test(struct TestCase *test)
         print_test(test->next);
 
     printf("  Test '");
-    fwrite(test->name, test->name_len, 1, stdout);
+    fwrite(test->name, test->namelen, 1, stdout);
     puts("'");
 
     if (test->code)
@@ -103,7 +103,7 @@ void print_sets(struct TestSet *set)
         print_sets(set->next);
 
     printf("Set '");
-    fwrite(set->name, set->name_len, 1, stdout);
+    fwrite(set->name, set->namelen, 1, stdout);
     printf("'\n");
 
     if (set->tolerance > 0.0) {
@@ -112,9 +112,9 @@ void print_sets(struct TestSet *set)
         puts("  No tolerance given");
     }
 
-    printf("  # deps: %d\n", set->n_deps);
-    printf("  # mods: %d\n", set->n_mods);
-    printf("  # test cases: %d\n", set->n_tests);
+    printf("  # deps: %zu\n", set->n_deps);
+    printf("  # mods: %zu\n", set->n_mods);
+    printf("  # test cases: %zu\n", set->n_tests);
 
     if (set->deps)
         print_dependency(set->deps);

@@ -1,0 +1,5 @@
+fortran_ext = wippit
+build = "escaped `woh` \" \\ \{{build} \${rule}'"
+
+
+fortran_ext = .qqq

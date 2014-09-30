@@ -7,19 +7,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-static char *fu_strndup(char *str, size_t len)
-{
-    char *copy = malloc(len + 1);
-    strcpy(copy, str);
-    return copy;
-}
-
-static char *fu_strdup(char *str)
-{
-    size_t len = strlen(str);
-    return fu_strndup(str, len);
-}
-
 static int try_open_file(const char *path, struct ParseState *ps)
 {
     struct stat statbuf;
@@ -79,7 +66,7 @@ static void key_end_finder(struct ParseState *ps)
 {
     while (ps->next_pos < ps->next_line_pos) {
         char c = *ps->next_pos;
-        if (c < 'A' || (c > 'Z' && c < 'a') || c > 'z' || c == '_')
+        if (c < 'A' || (c > 'Z' && c < 'a' &&  c != '_') || c > 'z')
             return;
         ps->next_pos++;
     }
@@ -100,20 +87,40 @@ static void value_end_finder(struct ParseState *ps)
     }
 }
 
-static char *next_quoted_string(struct ParseState *ps, size_t *len)
+static char *next_quoted_string(struct ParseState *ps, size_t *len,
+                                int *escapes)
 {
-    char quote_char = *ps->next_pos;
+    char quote_char = *ps->read_pos;
     assert(quote_char == '"' || quote_char == '\'');
-    ps->read_pos = ps->next_pos + 1;
+    ps->next_pos = ++ps->read_pos;
     while (ps->next_pos < ps->next_line_pos) {
-        if (*ps->next_pos == quote_char) {
+        if (*ps->next_pos == '\\' && (ps->next_pos[1] == '"' ||
+                                      ps->next_pos[1] == '\'')) {
+            *escapes = TRUE;
+            ps->next_pos++; // skip the '\', *and* skip the quote below
+        } else if (*ps->next_pos == quote_char) {
             *len = ps->next_pos - ps->read_pos;
+            ps->next_pos++;
             return ps->read_pos;
         }
         ps->next_pos++;
     }
     parse_fail(ps, ps->next_pos, "expected close quote at end of string");
     return NULL;
+}
+
+static char *copy_escaped_string(const char *s, size_t len)
+{
+    char *buf = malloc(len);
+    size_t srci = 0, desti = 0;
+    while (srci < len) {
+        if (s[srci] == '\\' && (s[srci + 1] == '"' || s[srci + 1] == '\'')) {
+            srci++; // skip past backslash to just copy quote
+        }
+        buf[desti++] = s[srci++];
+    }
+    buf[desti] = '\0';
+    return buf;
 }
 
 static int parse_config_setting(struct ParseState *ps, struct Config *conf)
@@ -128,22 +135,25 @@ static int parse_config_setting(struct ParseState *ps, struct Config *conf)
 
     // around the '='
     skip_next_ws(ps);
-    if (*ps->next_pos != '=') {
+    if (*ps->next_pos == '=') {
+        ps->next_pos++;
+        skip_next_ws(ps);
+    } else {
         parse_fail(ps, ps->next_pos, "'=' expected after config key");
         return -1;
     }
-    skip_next_ws(ps);
 
     // config value
     size_t valuelen;
     char *value = NULL;
-    if (*ps->next_pos == '"' || *ps->next_pos == '\'') {
-        value = next_quoted_string(ps, &valuelen);
+    int escapes = 0;
+    ps ->read_pos = ps->next_pos;
+    if (*ps->read_pos == '"' || *ps->read_pos == '\'') {
+        value = next_quoted_string(ps, &valuelen, &escapes);
     } else {
         value = next_thing(ps, &valuelen, value_end_finder);
     }
-    if (!value)
-        return -1;
+    if (!value) return -1;
 
     // check for trailing text
     skip_next_ws(ps);
@@ -153,21 +163,36 @@ static int parse_config_setting(struct ParseState *ps, struct Config *conf)
     case '#':
         break;
     default:
-        parse_fail(ps, ps->next_pos, "unexpected text after config value");
+        parse_fail(ps, ps->next_pos, "unexpected text after config value -- add a comment or surround it with quotes (\" or ')");
         return -1;
     }
 
     // store value
-    value = fu_strndup(value, valuelen);
-    if (!strcmp("build", key)) {
+    if (escapes) {
+        value = copy_escaped_string(value, valuelen);
+    } else {
+        value = fu_strndup(value, valuelen);
+    }
+
+    if (keylen == 5 && !strncmp("build", key, 5)) {
         conf->build = value;
-    } else if (!strcmp("fortran_ext", key)) {
+        conf->build_len = valuelen;
+    } else if (keylen == 11 && !strncmp("fortran_ext", key, 11)) {
         conf->fortran_ext = value;
-    } else if (!strcmp("template_ext", key)) {
+        conf->fortran_ext_len = valuelen;
+    } else if (keylen == 12 && !strncmp("template_ext", key, 12)) {
         conf->template_ext = value;
+        conf->template_ext_len = valuelen;
     } else {
         free(value);
-        parse_vfail(ps, key, "unknown config key '%s'", key);
+
+        fprintf(stderr, "%s:%li: Error: unknown config key '",
+                ps->path, ps->lineno);
+        fwrite(key, 1, keylen, stderr);
+        fputs("' in\n", stderr);
+        fwrite(ps->line_pos, 1, ps->next_line_pos - ps->line_pos, stderr);
+        fputs("\n", stderr);
+
         return -1;
     }
     return 0;
@@ -189,6 +214,7 @@ static int parse_config(struct ParseState *ps, struct Config *conf)
         case '#':
             continue; // start of comment or end of line
         default:
+            // config keys always start with a letter
             if (c < 'A' || (c > 'Z' && c < 'a') || c > 'z') {
                 syntax_error(ps);
                 return -1;
@@ -202,20 +228,30 @@ static int parse_config(struct ParseState *ps, struct Config *conf)
     return 0;
 }
 
+#define SELF_STRNDUP(var) var = fu_strndup(var, var ## _len)
+
 static void set_defaults(struct Config *conf)
 {
     if (!conf->build) {
-        // XXX set default build command
-        fprintf(stderr, "no build command given and no default yet!\n");
-        abort();
+        conf->build = fu_strdup("make {{EXE}}");
+        conf->build_len = 12;
+    } else {
+        SELF_STRNDUP(conf->build);
     }
+    conf->build_fragments = parse_build_rule(conf->build);
 
     if (!conf->fortran_ext) {
         conf->fortran_ext = fu_strdup(".F90");
+        conf->fortran_ext_len = 4;
+    } else {
+        SELF_STRNDUP(conf->fortran_ext);
     }
 
     if (!conf->template_ext) {
         conf->template_ext = fu_strdup(".fun");
+        conf->template_ext_len = 4;
+    } else {
+        SELF_STRNDUP(conf->template_ext);
     }
 }
 
@@ -227,6 +263,8 @@ int read_config(struct Config *conf)
         fprintf(stderr, "error: funit config file not found\n");
         return -1;
     }
+
+    memset(conf, 0, sizeof(struct Config));
 
     int r = parse_config(&ps, conf);
     close_parse_file(&ps);
@@ -243,6 +281,7 @@ void free_config(struct Config *conf)
     assert(conf != NULL);
 
     free(conf->build);
+    free_build_fragments(conf->build_fragments);
     free(conf->fortran_ext);
     free(conf->template_ext);
 }

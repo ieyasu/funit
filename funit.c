@@ -75,7 +75,7 @@ static char *make_fortran_name(char *infile, const struct Config *conf)
 }
 
 static struct TestFile *
-generate_code(char *infile, char **outfile, const struct Config *conf)
+generate_code(char *infile, char *outfile, const struct Config *conf)
 {
     struct TestFile *tf;
     FILE *fout;
@@ -92,8 +92,10 @@ generate_code(char *infile, char **outfile, const struct Config *conf)
     dep_added = file_dependency(infile, tf->sets, conf);
 
     // XXX if we're generating code just to run a test, use a mkstemp
-    if (!*outfile)
-        *outfile = make_fortran_name(infile, conf);
+    if (!outfile) {
+        outfile = make_fortran_name(infile, conf);
+    }
+    tf->exe = outfile;
 
     fout = fopen(*outfile, "w");
     if (!fout) {
@@ -166,8 +168,13 @@ int main(int argc, char **argv)
     }
 
     while (optind < argc) {
-        if (generate_code(argv[optind], outfile) == 0) {
-            // XXX build the code with make or sth
+        struct TestFile *tf = generate_code(argv[optind], &outfile, &conf);
+        if (tf) {
+            if (!just_output_fortran) {
+                build_test(tf, &conf);
+                //run_test();
+            }
+            close_testfile(tf);
         }
         optind++;
     }

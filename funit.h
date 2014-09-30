@@ -7,10 +7,18 @@
 
 struct Config {
     char *build;
+    void *build_fragments;
     char *fortran_ext;
     char *template_ext;
+    size_t build_len;
+    size_t fortran_ext_len;
+    size_t template_ext_len;
 };
 
+struct StringBuffer {
+    char *s;         // the start of the string buffer
+    size_t cap, len;
+};
 
 struct ParseState {
     const char *path;
@@ -55,6 +63,8 @@ enum MacroType {
     FLUNK
 };
 
+/* A fragment of Fortran, funit test macro, or funit macro argument code.
+ */
 struct Code {
     struct Code *next;
     enum CodeType type;
@@ -71,12 +81,16 @@ struct Code {
     } u;
 };
 
+/* A source file name denoted by the "dep" macro.
+ */
 struct TestDependency {
     struct TestDependency *next;
     char *filename;
     size_t len;
 };
 
+/* A module name extracted from a Fortran "use" directive.
+ */
 struct TestModule {
     struct TestModule *next;
     char *name;
@@ -84,14 +98,18 @@ struct TestModule {
     size_t len, elen;
 };
 
+/* One of the test case functions denoted by the "test" macro.
+ */
 struct TestCase {
     struct TestCase *next;
     char *name;
-    size_t name_len;
+    size_t namelen;
     int need_array_iterator;
     struct Code *code;
 };
 
+/* A set of test cases denoted by the "set" macro.
+ */
 struct TestSet {
     struct TestSet *next;
     struct TestDependency *deps;
@@ -99,15 +117,17 @@ struct TestSet {
     struct Code *setup, *teardown;
     struct TestCase *tests;
     struct Code *code;
-    int n_deps, n_mods, n_tests;
+    size_t n_deps, n_mods, n_tests;
     char *name;
-    size_t name_len;
+    size_t namelen;
     double tolerance;
 };
 
 struct TestFile {
+    const char *path;
+    const char *exe;
     struct TestSet *sets;
-    // private
+    // private:
     struct ParseState ps;
 };
 
@@ -116,6 +136,14 @@ struct TestFile {
 // The name of the current test set template file
 // XXX do I really want a global var for this?
 extern const char *test_set_file_name;
+
+#ifndef FALSE
+#define FALSE (0)
+#endif
+
+#ifndef TRUE
+#define TRUE (!FALSE)
+#endif
 
 #ifndef MIN
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
@@ -127,6 +155,7 @@ extern const char *test_set_file_name;
 
 #define NEW(type)  (type *)malloc(sizeof(type))
 #define NEW0(type) (type *)calloc(1, sizeof(type))
+#define NEWA(type,count) (type *)malloc(sizeof(type) * (count))
 
 // Config file
 int read_config(struct Config *conf);
@@ -138,5 +167,22 @@ void close_testfile(struct TestFile *tf);
 
 // Code generator
 int generate_code_file(struct TestSet *file, FILE *fout);
+
+// build rules
+void *parse_build_rule(char *build);
+void make_build_command(struct StringBuffer *sb,
+                        const struct TestFile *tf,
+                        const struct Config *conf);
+void free_build_fragments(void *p);
+
+// utility
+char *fu_strndup(char *str, size_t len);
+char *fu_strdup(char *str);
+void sb_init(struct StringBuffer *sb, size_t length);
+void sb_free(struct StringBuffer *sb);
+void sb_ensure(struct StringBuffer *sb, size_t at_least);
+void sb_add_char(struct StringBuffer *sb, char c);
+void sb_add_nstr(struct StringBuffer *sb, const char *s, size_t len);
+void sb_add_str(struct StringBuffer *sb, const char *s);
 
 #endif // FUNIT_H

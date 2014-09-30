@@ -90,6 +90,8 @@ void close_testfile(struct TestFile *tf)
 {
     assert(tf != NULL);
 
+    free(tf->path);
+
     if (tf->sets)
         free_sets(tf->sets);
 
@@ -597,7 +599,7 @@ static char *expect_name(struct ParseState *ps, size_t *len, const char *kind)
 }
 
 static int parse_end_sequence(struct ParseState *ps, const char *kind,
-                              const char *name, size_t name_len)
+                              const char *name, size_t namelen)
 {
     char message[32] = "end ";
     char *tok;
@@ -621,7 +623,7 @@ static int parse_end_sequence(struct ParseState *ps, const char *kind,
     if (name) {
         tok = next_name(ps, &len);
         assert(tok != NULL);
-        if (tok != END_OF_LINE && !same_token(name, name_len, tok, len)) {
+        if (tok != END_OF_LINE && !same_token(name, namelen, tok, len)) {
             parse_vfail(ps, ps->read_pos, "mismatched %s name", kind);
             return -1;
         }
@@ -696,10 +698,10 @@ static struct TestCase *parse_test_case(struct ParseState *ps)
 {
     struct TestCase *test = NEW0(struct TestCase);
 
-    test->name = expect_name(ps, &test->name_len, "test");
+    test->name = expect_name(ps, &test->namelen, "test");
     if (!test->name)
         goto err;
-    if (memchr(test->name, '"', test->name_len)) {
+    if (memchr(test->name, '"', test->namelen)) {
         parse_fail(ps, ps->read_pos, "double quotes (\") not allowed in test names");
         goto err;
     }
@@ -712,7 +714,7 @@ static struct TestCase *parse_test_case(struct ParseState *ps)
     if (!test->code)
         goto err;
 
-    if (parse_end_sequence(ps, "test", test->name, test->name_len))
+    if (parse_end_sequence(ps, "test", test->name, test->namelen))
         goto err;
 
     return test;
@@ -730,7 +732,7 @@ static struct TestSet *parse_set(struct ParseState *ps)
     assert(ps->next_pos);
     assert(ps->next_pos > ps->read_pos);
 
-    set->name = expect_name(ps, &set->name_len, "set");
+    set->name = expect_name(ps, &set->namelen, "set");
     if (!set->name)
         goto err;
 
@@ -818,7 +820,7 @@ static struct TestSet *parse_set(struct ParseState *ps)
     }
 
     // end set name
-    if (parse_end_sequence(ps, "set", set->name, set->name_len))
+    if (parse_end_sequence(ps, "set", set->name, set->namelen))
         goto err;
 
     return set;
@@ -833,6 +835,7 @@ struct TestFile *parse_test_file(const char *path)
 {
     struct TestFile *tf = NEW0(struct TestFile);
     struct ParseState *ps = &tf->ps;
+    tf->path = fu_strdup(path);
 
     if (!open_file_for_parsing(path, ps)) {
         free(tf);

@@ -1,0 +1,6 @@
+fortran_ext=.ftn # comment after
+     # hello
+template_ext = '.foo' #comment after2
+build= "make me a pretty salad"# comment after3
+
+# comment at start
