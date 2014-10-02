@@ -178,6 +178,7 @@ void free_build_fragments(void *p);
 // utility
 char *fu_strndup(const char *str, size_t len);
 char *fu_strdup(const char *str);
+int fu_file_exists(const char *path);
 void sb_init(struct StringBuffer *sb, size_t length);
 void sb_free(struct StringBuffer *sb);
 void sb_ensure(struct StringBuffer *sb, size_t at_least);

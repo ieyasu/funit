@@ -729,15 +729,13 @@ static struct TestSet *parse_set(struct ParseState *ps)
     char *tok;
     size_t len;
 
-    assert(ps->next_pos);
+    assert(ps->next_pos != NULL);
     assert(ps->next_pos > ps->read_pos);
 
     set->name = expect_name(ps, &set->namelen, "set");
-    if (!set->name)
-        goto err;
+    if (!set->name) goto err;
 
-    if (expect_eol(ps))
-        goto err;
+    if (expect_eol(ps)) goto err;
 
     // set contents: dep, tolerance, setup, teardown, test case, fortran
     set->tolerance = 0.0; // XXX magic number == BAD
@@ -837,7 +835,7 @@ struct TestFile *parse_test_file(const char *path)
     struct ParseState *ps = &tf->ps;
     tf->path = fu_strdup(path);
 
-    if (!open_file_for_parsing(path, ps)) {
+    if (open_file_for_parsing(path, ps) != 0) {
         free(tf);
         return NULL;
     }

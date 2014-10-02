@@ -29,7 +29,7 @@ funit_fortran_module.h: mod_funit.F90
 test: test/parser/test_parser test/test_build_rule test/test_util \
 	test/config/test_config funit
 	test/test_build_rule
-	test/test_util
+	cd test; ./test_util
 	cd test/config; ./test_config
 	cd test/code_gen; ./run.sh
 

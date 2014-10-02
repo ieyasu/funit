@@ -3,11 +3,20 @@
 #include <unistd.h>
 #include <string.h>
 
+/* Command line options.
+ */
+struct Options {
+    int just_output_fortran;
+    int stop_after_build;
+    char *outfile;
+};
+
 static const char usage[] = 
 "Usage: funit [-E] [-o file] [test_file.fun...|testdir]\n"
 "             [-h]\n"
 "\n"
 "  -E       stop after emitting Fortran code from the template .fun files\n"
+"  -c       stop after building the generated test code\n"
 "  -h       print this help message\n"
 "  -o FILE  write Fortran code to FILE instead of the default name\n"
 "\n"
@@ -82,8 +91,7 @@ generate_code(char *infile, char *outfile, const struct Config *conf)
     int dep_added;
 
     tf = parse_test_file(infile);
-    if (!tf)
-        return NULL;
+    if (!tf) return NULL;
     if (!tf->sets) {
         close_testfile(tf);
         return NULL;
@@ -97,9 +105,9 @@ generate_code(char *infile, char *outfile, const struct Config *conf)
     }
     tf->exe = outfile;
 
-    fout = fopen(*outfile, "w");
+    fout = fopen(outfile, "w");
     if (!fout) {
-        fprintf(stderr, "FUnit: could not open %s for writing\n", *outfile);
+        fprintf(stderr, "FUnit: could not open %s for writing\n", outfile);
         return NULL;
     }
 
@@ -109,7 +117,7 @@ generate_code(char *infile, char *outfile, const struct Config *conf)
     }
 
     if (fclose(fout)) {
-        fprintf(stderr, "FUnit: error closing %s\n", *outfile);
+        fprintf(stderr, "FUnit: error closing %s\n", outfile);
         close_testfile(tf);
         return NULL;
     }
@@ -125,40 +133,102 @@ generate_code(char *infile, char *outfile, const struct Config *conf)
     return tf;
 }
 
-int main(int argc, char **argv)
+static int checked_system(const char *command)
 {
-    struct Config conf;
-    int just_output_fortran = 0;
-    char *outfile = NULL;
-    int opt;
+    int ret = system(command);
 
-    while ((opt = getopt(argc, argv, "Eho:")) != -1) {
-        switch(opt) {
+    if (ret == 127) {
+        ret = -1;
+        goto report_err;
+    } else if (ret < 0) {
+ report_err:
+        fprintf(stderr, "system(): error executing '%s'\n", command);
+    } // else success
+
+    return ret;
+}
+
+static int build_test(struct TestFile *tf, struct Config *conf)
+{
+    struct StringBuffer sb;
+    sb_init(&sb, 128);
+
+    make_build_command(&sb, tf, conf);
+
+    int ret = checked_system(sb.s);
+
+    sb_free(&sb);
+
+    return ret;
+}
+
+static int run_test(const char *testfile)
+{
+    if (!fu_file_exists(testfile)) {
+        fprintf(stderr, "Test executable '%s' not found\n", testfile);
+        return -1;
+    }
+
+    return checked_system(testfile);
+}
+
+static int parse_args(int argc, char **argv, struct Options *opts)
+{
+    memset(opts, 0, sizeof(struct Options));
+
+    int opt;
+    while ((opt = getopt(argc, argv, "Echo:")) != -1) {
+        switch (opt) {
         case 'E':
-            just_output_fortran = -1;
+            if (opts->stop_after_build) {
+                fputs("FUnit: overriding -c with -E\n", stderr);
+                opts->stop_after_build = FALSE;
+            }
+            opts->just_output_fortran = TRUE;
+            break;
+        case 'c':
+            if (opts->just_output_fortran) {
+                fputs("Funit: overriding -E with -c\n", stderr);
+                opts->just_output_fortran = TRUE;
+            }
+            opts->stop_after_build = TRUE;
             break;
         case 'h':
             fputs(usage, stderr);
             return 0;
         case 'o':
-            outfile = optarg;
+            opts->outfile = optarg;
             break;
         case '?': // unrecognized option or missing argument
             fputs(usage, stderr);
             return -1;
         default:
-            fprintf(stderr, "%s: unknown option %c\n", argv[0], (char)opt);
-            abort();
+            fprintf(stderr, "FUnit: unknown option %c\n", (char)opt);
+            exit(-1);
         }
     }
+
     if (optind == argc) {
         fprintf(stderr, "%s: missing test files\n", argv[0]);
         fputs(usage, stderr);
         return -1;
     }
-    if (outfile && optind + 1 < argc) {
+
+    if (opts->outfile && optind + 1 < argc) {
         fprintf(stderr, "%s: only one input file can be given when "
                 "specifying the output file\n", argv[0]);
+        return -1;
+    }
+
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    struct Config conf;
+    struct Options opts;
+
+    if (parse_args(argc, argv, &opts)) {
         return -1;
     }
 
@@ -168,17 +238,26 @@ int main(int argc, char **argv)
     }
 
     while (optind < argc) {
-        struct TestFile *tf = generate_code(argv[optind], &outfile, &conf);
+printf("generating code from %s to %s\n", argv[optind], opts.outfile);
+
+        struct TestFile *tf = generate_code(argv[optind], opts.outfile, &conf);
         if (tf) {
-            if (!just_output_fortran) {
-                build_test(tf, &conf);
-                //run_test();
-            }
+            if (opts.just_output_fortran) goto pass;
+printf("building test for %s\n", opts.outfile);
+            build_test(tf, &conf);
+
+            if (opts.stop_after_build) goto pass;
+printf("running test %s\n", tf->exe);
+            run_test(tf->exe);
+
+ pass:
             close_testfile(tf);
-        }
+        } // XXX what does it mean if tf == NULL?
+
         optind++;
     }
 
     free_config(&conf);
+
     return 0;
 }

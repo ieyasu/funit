@@ -259,15 +259,17 @@ int read_config(struct Config *conf)
 {
     char config_path[PATH_MAX + 1];
     struct ParseState ps;
-    if (find_config_file(config_path, &ps)) {
-        fprintf(stderr, "error: funit config file not found\n");
-        return -1;
-    }
+    int r;
 
     memset(conf, 0, sizeof(struct Config));
 
-    int r = parse_config(&ps, conf);
-    close_parse_file(&ps);
+    if (find_config_file(config_path, &ps)) {
+        fprintf(stderr, "FUnit: warning: config file not found\n");
+        r = 0;
+    } else {
+        r = parse_config(&ps, conf);
+        close_parse_file(&ps);
+    }
 
     if (r == 0) {
         set_defaults(conf);

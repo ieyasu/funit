@@ -53,9 +53,17 @@ static void test_string_buffer()
     sb_free(&sb);
 }
 
+void test_file_exists()
+{
+    assert(fu_file_exists("test_util.c"));
+    assert(fu_file_exists("link"));
+    assert(!fu_file_exists("does-not-exist"));
+}
+
 int main(int argc, char **argv)
 {
     test_string_buffer();
+    test_file_exists();
 
     puts("all util tests passed!");
 }

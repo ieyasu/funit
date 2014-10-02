@@ -1,7 +1,10 @@
 /* Utility functions for FUnit.
  */
 #include "funit.h"
+#include <errno.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 char *fu_strndup(const char *str, size_t len)
 {
@@ -14,6 +17,23 @@ char *fu_strdup(const char *str)
 {
     size_t len = strlen(str);
     return fu_strndup(str, len);
+}
+
+int fu_file_exists(const char *path)
+{
+    struct stat sb;
+
+    if (stat(path, &sb)) {
+        if (errno != ENOENT) {
+            fprintf(stderr, "Error stat()ing %s: %s\n", path, strerror(errno));
+        }
+        return FALSE;
+    }
+
+    if (sb.st_mode & (S_IFREG | S_IFLNK)) {
+        return TRUE;
+    }
+    return FALSE;
 }
 
 void sb_init(struct StringBuffer *sb, size_t length)

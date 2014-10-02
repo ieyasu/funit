@@ -9,7 +9,7 @@ check_case() {
         out=`basename $f .fun`.f90
 
         # generate .f90 code from .fun template
-        ../../../funit -o $out $f
+        ../../../funit -E -o $out $f
         if [ $? -ne 0 ]; then
             echo "funit exited with an error code"
             exit -1
@@ -31,6 +31,8 @@ check_case() {
             diff -w $out $exp
             rm -f $out
             exit -1
+        else
+            echo "$case_dir passed"
         fi
 
         # clean up

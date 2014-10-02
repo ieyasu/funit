@@ -146,6 +146,7 @@ char *skip_next_ws(struct ParseState *ps)
 char *next_thing(struct ParseState *ps, size_t *len, end_finder_fun end_fun)
 {
     skip_next_ws(ps);
+    ps->read_pos = ps->next_pos;
 
     end_fun(ps);
 
@@ -191,6 +192,7 @@ int open_file_for_parsing(const char *path, struct ParseState *ps)
         fprintf(stderr, "Mapping file %s: %s\n", path, strerror(errno));
         goto close_it;
     }
+
     ps->file_end = ps->file_buf + ps->bufsize;
     ps->line_pos = ps->next_line_pos = NULL;
     ps->read_pos = ps->next_pos = NULL;
