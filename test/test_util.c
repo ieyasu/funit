@@ -60,10 +60,26 @@ void test_file_exists()
     assert(!fu_file_exists("does-not-exist"));
 }
 
+void test_subfileext()
+{
+    char *s = fu_sub_file_ext("foo.exe", ".exe", ".txt");
+    assert(strcmp(s, "foo.txt") == 0);
+    free(s);
+
+    s = fu_sub_file_ext("foo.bah", ".exe", ".txt");
+    assert(strcmp(s, "foo.bah.txt") == 0);
+    free(s);
+
+    s = fu_sub_file_ext("foo", ".exe", ".txt");
+    assert(strcmp(s, "foo.txt") == 0);
+    free(s);
+}
+
 int main(int argc, char **argv)
 {
     test_string_buffer();
     test_file_exists();
+    test_subfileext();
 
     puts("all util tests passed!");
 }

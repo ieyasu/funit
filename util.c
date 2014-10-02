@@ -3,6 +3,8 @@
 #include "funit.h"
 #include <errno.h>
 #include <string.h>
+#include <limits.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -34,6 +36,30 @@ int fu_file_exists(const char *path)
         return TRUE;
     }
     return FALSE;
+}
+
+char *fu_sub_file_ext(const char *path, const char *oldext, const char *newext)
+{
+    static char buf[PATH_MAX + 1];
+
+    char *dot = strrchr(path, '.');
+
+    if (dot && !strcmp(dot, oldext)) {
+        if (dot - path + strlen(newext) > PATH_MAX) goto too_long;
+
+        strncpy(buf, path, dot - path);
+        strcpy(buf + (dot - path), newext);
+    } else { // unrecognized or missing extension, just append extension
+        if (strlen(path) + strlen(newext) > PATH_MAX) goto too_long;
+
+        strcpy(buf, path);
+        strcat(buf, newext);
+    }
+
+    return fu_strdup(buf);
+ too_long:
+    fprintf(stderr, "FUnit: the file name '%s' is too long\n", path);
+    abort();
 }
 
 void sb_init(struct StringBuffer *sb, size_t length)
