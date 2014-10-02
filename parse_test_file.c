@@ -90,7 +90,7 @@ void close_testfile(struct TestFile *tf)
 {
     assert(tf != NULL);
 
-    free(tf->path);
+    free((void *)tf->path);
 
     if (tf->sets)
         free_sets(tf->sets);

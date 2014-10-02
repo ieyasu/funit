@@ -3,6 +3,7 @@
 *.core
 funit
 .funit
+test/test_build_rule
 test/config/test_config
 test/parser/test_parser
 test/test_util

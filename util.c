@@ -3,14 +3,14 @@
 #include "funit.h"
 #include <string.h>
 
-char *fu_strndup(char *str, size_t len)
+char *fu_strndup(const char *str, size_t len)
 {
     char *copy = malloc(len + 1);
     strcpy(copy, str);
     return copy;
 }
 
-char *fu_strdup(char *str)
+char *fu_strdup(const char *str)
 {
     size_t len = strlen(str);
     return fu_strndup(str, len);

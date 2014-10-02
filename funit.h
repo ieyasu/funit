@@ -176,8 +176,8 @@ void make_build_command(struct StringBuffer *sb,
 void free_build_fragments(void *p);
 
 // utility
-char *fu_strndup(char *str, size_t len);
-char *fu_strdup(char *str);
+char *fu_strndup(const char *str, size_t len);
+char *fu_strdup(const char *str);
 void sb_init(struct StringBuffer *sb, size_t length);
 void sb_free(struct StringBuffer *sb);
 void sb_ensure(struct StringBuffer *sb, size_t at_least);

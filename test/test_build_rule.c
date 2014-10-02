@@ -1,7 +1,5 @@
 #include "../funit.h"
-#include "../build_and_run.c"
-
-// XXX test some of teh more complex expansion funcs
+#include "../build_rule.c"
 
 void test_len_without_ext(void)
 {
@@ -201,15 +199,10 @@ void test_parse_env_var(void)
 
 struct BRFragments *test_parse_build_rule(void)
 {
-    struct Config conf;
-
-    int ret = read_config(&conf);
-    assert(ret == 0);
-
     setenv("FC", "f95", 1);
 
     char *build = fu_strdup("${FC} blah {{EXE}} $woop ${tea \\{\\} \\\\");
-    struct BRFragments *f = parse_build_rule(build, &conf);
+    struct BRFragments *f = parse_build_rule(build);
 
     assert(f->n == 3);
     assert(f->cap >= 3);
@@ -244,6 +237,8 @@ void test_make_build_command(struct BRFragments *f)
 
 int main(int argc, char **argv)
 {
+    puts("There should be several Warning messages below.\n");
+
     test_len_without_ext();
     test_expand_deps();
     test_expand_mods_with();
@@ -255,5 +250,5 @@ int main(int argc, char **argv)
     test_make_build_command(f);
     free_build_fragments(f);
 
-    puts("all build and run tests passed!");
+    puts("\nall build rule parsing tests passed!");
 }
