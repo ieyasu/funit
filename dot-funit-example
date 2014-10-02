@@ -4,11 +4,10 @@
 
 # One-line command to build a test along with its deps.
 # FUnit special vars are surrounded with double curly braces ('{{...}}')
-# environment variables will be expanded when written with Bourne-type
-# syntax, e.g. ${HOME}
-#
-# must be given
-build = gfortran -o {{EXE}} {{DEPS}} -lnetcdf
+# environment variables will be expanded when written with Unix shell-like
+# syntax, e.g. ${HOME}.  The following must be quoted because it contains
+# spaces.
+build = "gfortran -o {{EXE}} {{DEPS}} -lnetcdf"
 
 # Set the file extension to use for Fortran code generated from .fun files
 # before they are linked into a test program. Default is '.F90'.
