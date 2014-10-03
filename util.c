@@ -4,14 +4,14 @@
 #include <errno.h>
 #include <string.h>
 #include <limits.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 char *fu_strndup(const char *str, size_t len)
 {
     char *copy = malloc(len + 1);
-    strcpy(copy, str);
+    strncpy(copy, str, len);
+    copy[len] = '\0';
     return copy;
 }
 

@@ -1,6 +1,13 @@
 #include "../funit.h"
 #include "../util.c"
 
+static void test_fu_strndup()
+{
+    char *s = fu_strndup("foobar", 3);
+    assert(strlen(s) == 3);
+    assert(strcmp(s, "foo") == 0);
+}
+
 static void test_string_buffer()
 {
     struct StringBuffer sb = {(char *)0xDEADBEEF, 0, 0};
@@ -77,6 +84,7 @@ void test_subfileext()
 
 int main(int argc, char **argv)
 {
+    test_fu_strndup();
     test_string_buffer();
     test_file_exists();
     test_subfileext();
